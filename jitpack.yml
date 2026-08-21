@@ -2,4 +2,4 @@ jdk:
   - openjdk17
 
 install:
-  - ./gradlew :reelssdk:publishToMavenLocal
+  - ./gradlew --no-daemon -Dkotlin.compiler.execution.strategy=in-process :reelssdk:publishToMavenLocal

@@ -27,7 +27,7 @@ dependencyResolutionManagement {
 }
 ```
 
-When testing a locally published SDK from this same checkout, add `mavenLocal()` before JitPack and run `./gradlew :reelssdk:publishToMavenLocal` first:
+When testing a locally published SDK from this same checkout, add `mavenLocal()` before JitPack and run `./gradlew --no-daemon -Dkotlin.compiler.execution.strategy=in-process :reelssdk:publishToMavenLocal` first:
 
 ```kotlin
 repositories {
@@ -42,7 +42,7 @@ Add the SDK dependency in the app module:
 
 ```kotlin
 dependencies {
-    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.4")
+    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.5")
 }
 ```
 
@@ -51,7 +51,7 @@ This artifact can be installed alongside the existing mobile player SDK because 
 ```kotlin
 dependencies {
     implementation("com.github.kamleshmultitv:mtvplayersdk:mobile-2.0.36")
-    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.4")
+    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.5")
 }
 ```
 
@@ -66,9 +66,9 @@ This branch publishes the `reelssdk` Android library artifact. The current publi
 
 - `groupId`: `com.github.kamleshmultitv`
 - `artifactId`: `mtvreelssdk`
-- `version`: `reels-1.0.4`
+- `version`: `reels-1.0.5`
 
-This is a standalone repository, so third-party apps should depend on the `mtvreelssdk` artifact. If you publish a different Git tag/version, replace `reels-1.0.4` with that release version.
+This is a standalone repository, so third-party apps should depend on the `mtvreelssdk` artifact. If you publish a different Git tag/version, replace `reels-1.0.5` with that release version.
 
 ## 3. Android Setup
 
@@ -554,7 +554,7 @@ git switch main
 git pull --ff-only origin main
 git status --short
 ./gradlew :reelssdk:assembleRelease
-./gradlew :reelssdk:publishToMavenLocal
+./gradlew --no-daemon -Dkotlin.compiler.execution.strategy=in-process :reelssdk:publishToMavenLocal
 ./gradlew :reelssdk:lintRelease
 ```
 
@@ -565,7 +565,7 @@ jdk:
   - openjdk17
 
 install:
-  - ./gradlew :reelssdk:publishToMavenLocal
+  - ./gradlew --no-daemon -Dkotlin.compiler.execution.strategy=in-process :reelssdk:publishToMavenLocal
 ```
 
 The `reelssdk` module uses `maven-publish`, publishes the `release` variant, and includes a sources jar. For a new public release, update `reelssdk/build.gradle.kts`:
@@ -573,35 +573,35 @@ The `reelssdk` module uses `maven-publish`, publishes the `release` variant, and
 ```kotlin
 groupId = "com.github.kamleshmultitv"
 artifactId = "mtvreelssdk"
-version = "reels-1.0.4"
+version = "reels-1.0.5"
 ```
 
 After `publishToMavenLocal`, verify the generated Maven artifact exists:
 
 ```bash
-ls ~/.m2/repository/com/github/kamleshmultitv/mtvreelssdk/reels-1.0.4
+ls ~/.m2/repository/com/github/kamleshmultitv/mtvreelssdk/reels-1.0.5
 ```
 
 Expected files include:
 
-- `mtvreelssdk-reels-1.0.4.aar`
-- `mtvreelssdk-reels-1.0.4.pom`
-- `mtvreelssdk-reels-1.0.4-sources.jar`
+- `mtvreelssdk-reels-1.0.5.aar`
+- `mtvreelssdk-reels-1.0.5.pom`
+- `mtvreelssdk-reels-1.0.5-sources.jar`
 
 Then commit, push, and tag the exact commit:
 
 ```bash
 git add .
-git commit -m "Release reels SDK reels-1.0.4"
-git tag reels-1.0.4
+git commit -m "Release reels SDK reels-1.0.5"
+git tag reels-1.0.5
 git push origin main
-git push origin reels-1.0.4
+git push origin reels-1.0.5
 ```
 
 After JitPack finishes building the tag, third-party apps can use:
 
 ```kotlin
-implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.4")
+implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.5")
 ```
 
 Keep release work branch-safe by committing and tagging only from a clean `main` branch.
