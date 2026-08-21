@@ -1,5 +1,6 @@
-jdk:
-  - openjdk17
+before_install:
+  - sdk update
+  - sdk install java 17.0.12-tem
 
 install:
-  - ./gradlew --no-daemon -Dkotlin.compiler.execution.strategy=in-process :reelssdk:publishToMavenLocal
+  - export JAVA_HOME=$HOME/.sdkman/candidates/java/17.0.12-tem && export PATH=$JAVA_HOME/bin:$PATH && ./gradlew --no-daemon -Dkotlin.compiler.execution.strategy=in-process :reelssdk:publishToMavenLocal
