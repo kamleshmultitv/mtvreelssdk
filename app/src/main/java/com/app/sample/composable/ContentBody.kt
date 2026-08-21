@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -30,6 +29,11 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
 import com.app.mtvdownloader.entity.DownloadEntity
+import com.app.reelssdk.listener.ReelsPlayerStateListener
+import com.app.reelssdk.model.ReelsEpisodeSelectorConfig
+import com.app.reelssdk.model.ReelsEpisodeSelectorItem
+import com.app.reelssdk.model.ReelsEpisodeSelectorListener
+import com.app.reelssdk.ui.MtvReelsPlayerSdk
 import com.app.sample.R
 import com.app.sample.composable.download.DownloadPlayer
 import com.app.sample.composable.download.DownloadedContentList
@@ -37,8 +41,6 @@ import com.app.sample.model.ContentItem
 import com.app.sample.model.DeepLinkResponse
 import com.app.sample.model.OverrideContent
 import com.app.sample.utils.FileUtils.buildPlayerContentList
-import com.app.reelssdk.listener.ReelsPlayerStateListener
-import com.app.reelssdk.ui.MtvReelsPlayerSdk
 
 @Composable
 fun ContentBody(
@@ -75,18 +77,30 @@ fun ContentBody(
 
     var showDownloadedList by remember { mutableStateOf(false) }
     var selectedItem by remember { mutableStateOf<DownloadEntity?>(null) }
+    val episodeSelectorItems = remember(contentList) {
+        contentList.mapIndexed { index, item ->
+            ReelsEpisodeSelectorItem(
+                id = item.id?.takeIf { it.isNotBlank() } ?: index.toString(),
+                title = item.episodeTitle?.takeIf { it.isNotBlank() }
+                    ?: item.title.orEmpty(),
+                episodeNumber = item.episodeNumber?.toIntOrNull() ?: (index + 1),
+                seasonId = item.seasonNumber,
+                isLocked = false,
+                ageRating = item.ageRating ?: item.contentRating
+            )
+        }
+    }
+    val episodeSelectorConfig = ReelsEpisodeSelectorConfig(
+        enabled = episodeSelectorItems.isNotEmpty(),
+        episodes = episodeSelectorItems,
+        currentIndex = selectedIndex.intValue,
+        totalCount = episodeSelectorItems.size
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(R.color.black))
-            .then(
-                if (!isFullScreen) {
-                    Modifier.statusBarsPadding()
-                } else {
-                    Modifier
-                }
-            )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
@@ -107,6 +121,39 @@ fun ContentBody(
                     setFullScreen = { isFull ->
                         onFullScreenChange(isFull)
                     },
+                    episodeSelectorConfig = episodeSelectorConfig,
+                    episodeSelectorListener = object : ReelsEpisodeSelectorListener {
+                        override fun onEpisodeSelected(
+                            index: Int,
+                            item: ReelsEpisodeSelectorItem
+                        ) {
+                            selectedIndex.intValue = index
+                            onOverrideContent(null)
+                        }
+
+                        override fun onLockedEpisodeClick(
+                            index: Int,
+                            item: ReelsEpisodeSelectorItem?
+                        ) {
+                            Log.d("CLIENT", "Locked episode click: index=$index, id=${item?.id}")
+                        }
+
+                        override fun onWatchNowClick(
+                            index: Int,
+                            item: ReelsEpisodeSelectorItem?
+                        ) {
+                            if (item?.isLocked == true) {
+                                onLockedEpisodeClick(index, item)
+                            } else {
+                                selectedIndex.intValue = index
+                                onOverrideContent(null)
+                            }
+                        }
+
+                        override fun onEpisodeSelectorExpandedChanged(isExpanded: Boolean) {
+                            Log.d("CLIENT", "Episode selector expanded: $isExpanded")
+                        }
+                    },
 
                     playerStateListener = object : ReelsPlayerStateListener {
 
@@ -124,6 +171,16 @@ fun ContentBody(
 
                         override fun onReelChanged(position: Int) {
                             selectedIndex.intValue = position
+                        }
+
+                        override fun onPreloadNext(index: Int) {
+                            if (index in 0 until pagingItems.itemCount) {
+                                val preloadItem = pagingItems[index]
+                                Log.d(
+                                    "CLIENT",
+                                    "Preload requested: index=$index, loaded=${preloadItem != null}"
+                                )
+                            }
                         }
 
                         override fun onFullScreenChanged(isFullScreen: Boolean) {

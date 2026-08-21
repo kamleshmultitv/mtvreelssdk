@@ -75,6 +75,7 @@ fun SelectorHeader(
     layoutMode: SettingsLayoutMode = SettingsLayoutMode.HorizontalTabs,
     selectedItemsState: MutableMap<Int, Int>? = null,
     selectedOptionId: Int? = null,
+    backgroundColor: Color = Color.Black.copy(alpha = 0.9f),
     onSelectedOptionChange: (Int?) -> Unit = {},
     closeOptionCard: (Boolean) -> Unit = {}
 ) {
@@ -114,7 +115,7 @@ fun SelectorHeader(
     Column(
         modifier = modifier
             .padding(contentPadding)
-            .background(Color.Black.copy(alpha = 0.9f))
+            .background(backgroundColor)
     ) {
         if (layoutMode == SettingsLayoutMode.TwoPane) {
             TwoPaneSettingsContent(

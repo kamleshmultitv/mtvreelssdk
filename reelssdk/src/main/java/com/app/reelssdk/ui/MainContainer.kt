@@ -4,17 +4,34 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -30,8 +47,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
@@ -39,8 +59,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.core.graphics.toColorInt
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
@@ -59,6 +81,7 @@ import com.app.reelssdk.model.ReelsPlayerModel
 import com.app.reelssdk.ui.ads.LShapeAdContainer
 import com.app.reelssdk.ui.reels.ReelsSettingsSheet
 import com.app.reelssdk.utils.PlayerUtils
+import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -74,7 +97,9 @@ fun MainContainer(
     isFullScreen: Boolean = startInFullScreen,
     onFullScreenModeChanged: (Boolean) -> Unit = {},
     isReelPageActive: Boolean = true,
-    controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig()
+    controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
+    showEpisodeSelector: Boolean = false,
+    isEpisodeSelectorExpanded: Boolean = false
 ) {
     if (LocalInspectionMode.current) {
         MainContainerPreviewSurface(
@@ -122,6 +147,7 @@ fun MainContainer(
     var isPlayerPlaying by remember { mutableStateOf(false) }
     var isSeekbarDragging by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
+    var fastForwardIndicatorSide by remember { mutableStateOf<HoldSide?>(null) }
     val reelsSettingsSelectedItems = remember(selectedIndex.intValue) {
         mutableStateMapOf<Int, Int>()
     }
@@ -166,6 +192,11 @@ fun MainContainer(
     val subtitleUri = if (isLive) "" else playerModel?.srt.orEmpty()
 
     var hasReleasedStartupBitrate by remember(selectedIndex.intValue, playbackUrl) { mutableStateOf(false) }
+    var hasRenderedFirstFrame by remember(selectedIndex.intValue, playbackUrl) { mutableStateOf(false) }
+    val posterUrl = remember(playerModel) {
+        playerModel?.thumbnail?.takeIf { it.isNotBlank() }
+            ?: playerModel?.imageUrl?.takeIf { it.isNotBlank() }
+    }
 
     val adsListener = remember {
         object : AdsListener {
@@ -262,6 +293,7 @@ fun MainContainer(
 
         val listener = object : Player.Listener {
             override fun onRenderedFirstFrame() {
+                hasRenderedFirstFrame = true
                 if (!hasReleasedStartupBitrate) {
                     hasReleasedStartupBitrate = true
                     player.trackSelectionParameters =
@@ -469,7 +501,11 @@ fun MainContainer(
         }
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+    ) {
         val reelsCollapsedHeight = maxWidth * 16 / 9
 
         LShapeAdContainer(
@@ -527,8 +563,45 @@ fun MainContainer(
                     modifier = Modifier
                         .then(videoSurfaceModifier)
                         .background(Color.Black)
-                        .pointerInput(isSettingsClick) {
+                        .pointerInput(isSettingsClick, exoPlayer) {
+                            var holdMutePreviousVolume: Float? = null
+                            var holdFastForwardPreviousParams: PlaybackParameters? = null
                             detectTapGestures(
+                                onPress = { offset ->
+                                    val holdSide = holdSideForOffset(offset.x, size.width)
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        if (holdSide != null) {
+                                            restoreFastForwardHold(
+                                                player = exoPlayer,
+                                                previousParameters = holdFastForwardPreviousParams
+                                            )
+                                            fastForwardIndicatorSide = null
+                                            holdFastForwardPreviousParams = null
+                                        } else {
+                                            restoreHoldMute(
+                                                player = exoPlayer,
+                                                previousVolume = holdMutePreviousVolume,
+                                                playerStateListener = playerStateListener
+                                            )
+                                            holdMutePreviousVolume = null
+                                        }
+                                    }
+                                },
+                                onLongPress = { offset ->
+                                    val holdSide = holdSideForOffset(offset.x, size.width)
+                                    if (holdSide != null) {
+                                        holdFastForwardPreviousParams =
+                                            startFastForwardHold(player = exoPlayer)
+                                        fastForwardIndicatorSide = holdSide
+                                    } else {
+                                        holdMutePreviousVolume = muteForHold(
+                                            player = exoPlayer,
+                                            playerStateListener = playerStateListener
+                                        )
+                                    }
+                                },
                                 onTap = {
                                     if (!isSettingsClick) {
                                         isControllerVisible = !isControllerVisible
@@ -538,12 +611,61 @@ fun MainContainer(
                         }
                 )
 
+                if (!hasRenderedFirstFrame && !posterUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = posterUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .then(videoSurfaceModifier)
+                            .background(Color.Black)
+                            .zIndex(1f)
+                    )
+                }
+
                 if (!isControllerVisible && !isSettingsClick) {
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .pointerInput(Unit) {
+                            .pointerInput(exoPlayer) {
+                                var holdMutePreviousVolume: Float? = null
+                                var holdFastForwardPreviousParams: PlaybackParameters? = null
                                 detectTapGestures(
+                                    onPress = { offset ->
+                                        val holdSide = holdSideForOffset(offset.x, size.width)
+                                        try {
+                                            tryAwaitRelease()
+                                        } finally {
+                                            if (holdSide != null) {
+                                                restoreFastForwardHold(
+                                                    player = exoPlayer,
+                                                    previousParameters = holdFastForwardPreviousParams
+                                                )
+                                                fastForwardIndicatorSide = null
+                                                holdFastForwardPreviousParams = null
+                                            } else {
+                                                restoreHoldMute(
+                                                    player = exoPlayer,
+                                                    previousVolume = holdMutePreviousVolume,
+                                                    playerStateListener = playerStateListener
+                                                )
+                                                holdMutePreviousVolume = null
+                                            }
+                                        }
+                                    },
+                                    onLongPress = { offset ->
+                                        val holdSide = holdSideForOffset(offset.x, size.width)
+                                        if (holdSide != null) {
+                                            holdFastForwardPreviousParams =
+                                                startFastForwardHold(player = exoPlayer)
+                                            fastForwardIndicatorSide = holdSide
+                                        } else {
+                                            holdMutePreviousVolume = muteForHold(
+                                                player = exoPlayer,
+                                                playerStateListener = playerStateListener
+                                            )
+                                        }
+                                    },
                                     onTap = {
                                         isControllerVisible = true
                                     }
@@ -559,8 +681,16 @@ fun MainContainer(
                     )
                 }
 
+                fastForwardIndicatorSide?.let { side ->
+                    FastForwardHoldIndicator(
+                        side = side,
+                        modifier = Modifier.zIndex(5f)
+                    )
+                }
+
                 AnimatedVisibility(
-                    visible = isControllerVisible,
+                    visible = isControllerVisible && !isEpisodeSelectorExpanded,
+                    modifier = Modifier.zIndex(3f),
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
@@ -588,7 +718,8 @@ fun MainContainer(
                             },
                             onSettingsClick = {
                                 isSettingsClick = true
-                            }
+                            },
+                            liftBottomControls = showEpisodeSelector
                         )
                     }
                 }
@@ -610,6 +741,122 @@ fun MainContainer(
             }
         }
     }
+}
+
+private fun muteForHold(
+    player: Player?,
+    playerStateListener: ReelsPlayerStateListener?
+): Float? {
+    player ?: return null
+
+    val previousVolume = player.volume
+    player.volume = 0f
+    playerStateListener?.onMuteStateChanged(true)
+
+    return previousVolume
+}
+
+private fun restoreHoldMute(
+    player: Player?,
+    previousVolume: Float?,
+    playerStateListener: ReelsPlayerStateListener?
+) {
+    if (player == null || previousVolume == null) return
+
+    player.volume = if (previousVolume > 0f) previousVolume else 1f
+    playerStateListener?.onMuteStateChanged(false)
+}
+
+private fun holdSideForOffset(x: Float, width: Int): HoldSide? {
+    if (width <= 0) return null
+
+    val sideWidth = width * 0.33f
+    return when {
+        x <= sideWidth -> HoldSide.Left
+        x >= width - sideWidth -> HoldSide.Right
+        else -> null
+    }
+}
+
+private fun startFastForwardHold(player: Player?): PlaybackParameters? {
+    player ?: return null
+
+    val previousParameters = player.playbackParameters
+    player.playbackParameters = PlaybackParameters(2f, previousParameters.pitch)
+
+    return previousParameters
+}
+
+private fun restoreFastForwardHold(
+    player: Player?,
+    previousParameters: PlaybackParameters?
+) {
+    if (player == null || previousParameters == null) return
+
+    player.playbackParameters = previousParameters
+}
+
+@Composable
+private fun FastForwardHoldIndicator(
+    side: HoldSide,
+    modifier: Modifier = Modifier
+) {
+    val transition = rememberInfiniteTransition(label = "fastForwardHold")
+    val scale by transition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 520),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "fastForwardHoldScale"
+    )
+
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 40.dp),
+        horizontalArrangement = if (side == HoldSide.Left) Arrangement.Start else Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color.White.copy(alpha = 0.16f))
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.24f),
+                    shape = RoundedCornerShape(28.dp)
+                )
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.FastForward,
+                contentDescription = "Fast forward",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Text(
+                text = "2x",
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+private enum class HoldSide {
+    Left,
+    Right
 }
 
 @Composable

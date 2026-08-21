@@ -161,7 +161,7 @@ fun CustomSlider(
                     text = formatTime(currentPosition),
                     color = Color.White,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(end = 8.dp)
+                    modifier = Modifier.padding(start = 12.dp, end = 8.dp)
                 )
             }
 
@@ -282,7 +282,7 @@ fun CustomSlider(
                     text = formatTime(duration),
                     color = Color.White,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = 8.dp, end = 12.dp)
                 )
             } else {
                 Row(

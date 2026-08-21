@@ -134,11 +134,14 @@ dependencies {
     implementation(libs.play.services.ads)
 
     // SDK
-    implementation(libs.mtvplayersdk)
     implementation(project(":reelssdk"))
     implementation(project(":mtvdownloader"))
 
-    // Use this instead of project(":reelssdk") when testing the published JitPack artifact.
-    // implementation(libs.reelssdk)
+    // player sdk
+  //   implementation(libs.mtvplayersdk)
+    // reels sdk
+   //  implementation(libs.reelssdk)
+    // download sdk
+  //  implementation(libs.mtvdownloadsdk)
 
 }

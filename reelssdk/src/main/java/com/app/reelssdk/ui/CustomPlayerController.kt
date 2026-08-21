@@ -12,7 +12,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -57,7 +58,8 @@ fun CustomPlayerController(
     cuePoints: List<CuePoint> = emptyList(),
     controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
     onSeekbarDraggingChanged: (Boolean) -> Unit = {},
-    onSettingsClick: (Boolean) -> Unit = {}
+    onSettingsClick: (Boolean) -> Unit = {},
+    liftBottomControls: Boolean = false
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val showControlsState = rememberUpdatedState(onShowControls)
@@ -256,7 +258,7 @@ fun CustomPlayerController(
             BottomControls(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .navigationBarsPadding(),
+                    .padding(bottom = if (liftBottomControls) 76.dp else 16.dp),
                 playerModelList = playerModelList,
                 index = index,
                 currentPosition = currentPosition,
@@ -294,6 +296,7 @@ fun CustomPlayerController(
                     onSettingsClick(true)
                 },
                 isFullScreen = isCurrentlyFullScreen,
+                bottomPadding = if (liftBottomControls) 36.dp else 18.dp,
                 onFullScreenClick = {
                     fullScreenState.value(!isCurrentlyFullScreen)
                 }

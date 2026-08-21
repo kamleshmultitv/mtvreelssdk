@@ -2,9 +2,9 @@ package com.app.reelssdk.ui.reels
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +30,7 @@ fun ReelsSettingsSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetBackground = Color(0xFF111111)
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -38,14 +39,15 @@ fun ReelsSettingsSheet(
         },
         modifier = Modifier.fillMaxWidth(),
         sheetState = sheetState,
-        containerColor = Color(0xFF111111),
+        containerColor = sheetBackground,
         contentColor = Color.White,
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = null
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 260.dp, max = 420.dp)
+                .fillMaxHeight(0.34f)
                 .navigationBarsPadding()
         ) {
             SelectorHeader(
@@ -54,6 +56,7 @@ fun ReelsSettingsSheet(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 0.dp),
                 layoutMode = SettingsLayoutMode.TwoPane,
+                backgroundColor = sheetBackground,
                 selectedItemsState = selectedItemsState,
                 selectedOptionId = selectedOptionId,
                 onSelectedOptionChange = onSelectedOptionChange,

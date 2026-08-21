@@ -4,6 +4,8 @@ import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
 import androidx.media3.common.util.UnstableApi
 import com.app.reelssdk.listener.ReelsPlayerStateListener
+import com.app.reelssdk.model.ReelsEpisodeSelectorConfig
+import com.app.reelssdk.model.ReelsEpisodeSelectorListener
 import com.app.reelssdk.model.ReelsPlayerConfig
 import com.app.reelssdk.model.ReelsPlayerModel
 import com.app.reelssdk.ui.reels.ReelsContainer
@@ -17,7 +19,9 @@ fun MtvReelsPlayerSdk(
     playerStateListener: ReelsPlayerStateListener? = null,
     onPlayerBack: (Boolean) -> Unit = {},
     setFullScreen: (Boolean) -> Unit = {},
-    playerConfig: ReelsPlayerConfig = ReelsPlayerConfig()
+    playerConfig: ReelsPlayerConfig = ReelsPlayerConfig(),
+    episodeSelectorConfig: ReelsEpisodeSelectorConfig = ReelsEpisodeSelectorConfig(),
+    episodeSelectorListener: ReelsEpisodeSelectorListener? = null
 ) {
     ReelsContainer(
         contentList = contentList,
@@ -26,6 +30,8 @@ fun MtvReelsPlayerSdk(
         onPlayerBack = onPlayerBack,
         setFullScreen = setFullScreen,
         startInFullScreen = startInFullScreen,
-        controlsConfig = playerConfig.controls
+        controlsConfig = playerConfig.controls,
+        episodeSelectorConfig = episodeSelectorConfig,
+        episodeSelectorListener = episodeSelectorListener
     )
 }

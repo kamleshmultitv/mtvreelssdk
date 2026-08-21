@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,11 +32,13 @@ fun UserActionWithText(
     val contentColor = iconTintRes?.let { colorResource(id = it) } ?: Color.White
 
     Column(
-        modifier = Modifier.clickable {
-            guard.tryPerform(action = {
-                onClick()
-            })
-        },
+        modifier = Modifier
+            .width(ReelsActionDefaults.ActionSlotWidth)
+            .clickable {
+                guard.tryPerform(action = {
+                    onClick()
+                })
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(

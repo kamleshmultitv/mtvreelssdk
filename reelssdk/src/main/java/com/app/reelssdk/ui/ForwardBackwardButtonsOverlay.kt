@@ -1,6 +1,7 @@
 package com.app.reelssdk.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -89,7 +90,12 @@ private fun ForwardBackwardButtonsOverlayUi(
                 modifier = Modifier
                     .size(playPauseButtonSize)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.2f))
+                    .background(Color.White.copy(alpha = 0.16f))
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.24f),
+                        shape = CircleShape
+                    )
                     .clickable(
                         interactionSource = playPauseInteractionSource,
                         indication = null,

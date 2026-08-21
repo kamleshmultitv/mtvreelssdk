@@ -60,7 +60,7 @@ fun TopBar(
                 }
             )
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-            .then(if (isFullScreen) Modifier.statusBarsPadding() else Modifier)
+            .statusBarsPadding()
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -85,7 +85,7 @@ fun TopBar(
                         Text(
                             text = it,
                             color = Color.White,
-                            fontSize = if (isFullScreen) 16.sp else 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
