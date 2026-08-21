@@ -2,7 +2,7 @@
 
 This guide explains how a third-party Android app should integrate the MTV Video Player SDK reels player.
 
-The reels player is a full-screen vertical feed player. It supports smooth page scrolling, next-item prefetch callbacks, first decoded video frame rendering, fast-start playback, seekbar, play/pause, expand/collapse, share sheet, settings bottom sheet, and app-provided control icons.
+The reels player is a full-screen vertical feed player. It supports smooth page scrolling, next-item prefetch callbacks, first decoded video frame rendering, fast-start playback, seekbar, play/pause, expand/collapse, internal episode selector, share sheet, settings bottom sheet, and app-provided control icons.
 
 ## 1. Requirements
 
@@ -42,7 +42,7 @@ Add the SDK dependency in the app module:
 
 ```kotlin
 dependencies {
-    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.5")
+    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.7")
 }
 ```
 
@@ -51,7 +51,7 @@ This artifact can be installed alongside the existing mobile player SDK because 
 ```kotlin
 dependencies {
     implementation("com.github.kamleshmultitv:mtvplayersdk:mobile-2.0.36")
-    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.5")
+    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.7")
 }
 ```
 
@@ -66,9 +66,9 @@ This branch publishes the `reelssdk` Android library artifact. The current publi
 
 - `groupId`: `com.github.kamleshmultitv`
 - `artifactId`: `mtvreelssdk`
-- `version`: `reels-1.0.5`
+- `version`: `reels-1.0.7`
 
-This is a standalone repository, so third-party apps should depend on the `mtvreelssdk` artifact. If you publish a different Git tag/version, replace `reels-1.0.5` with that release version.
+This is a standalone repository, so third-party apps should depend on the `mtvreelssdk` artifact. If you publish a different Git tag/version, replace `reels-1.0.7` with that release version.
 
 ## 3. Android Setup
 
@@ -116,7 +116,7 @@ Use:
 - `hlsUrl`: HLS playback URL.
 - `mpdUrl`: DASH playback URL, especially for DRM content.
 - `drm = "1"` and `drmToken`: if playback uses Widevine license/token.
-- `imageUrl` or `thumbnail`: optional image metadata. The reels player does not cover the video with this image during scroll; it keeps the Media3 surface visible so the first decoded video frame is rendered.
+- `imageUrl` or `thumbnail`: optional image metadata. The reels player uses this as a poster fallback until the first decoded video frame is rendered.
 - `title` or `episodeTitle`: title used by share text and metadata.
 - `shareUrl`: public content URL for share sheet.
 - `srt`: subtitle URL, if available.
@@ -149,7 +149,7 @@ fun ApiReel.toReelsPlayerModel(): ReelsPlayerModel {
 }
 ```
 
-For fastest perceived startup, provide optimized HLS/DASH streams with a short startup segment. The reels player keeps the video surface visible and renders the first decoded frame instead of showing a thumbnail overlay during scroll.
+For fastest perceived startup, provide optimized HLS/DASH streams with a short startup segment. The reels player keeps one adjacent page prepared and can show the item poster until the first decoded frame arrives.
 
 ## 5. Basic Reels Screen
 
@@ -385,7 +385,192 @@ Important integration rules:
 - Keep API pagination logic in the third-party app or its ViewModel, not inside the SDK.
 - Update the list only when new data arrives, not on every scroll callback.
 
-## 8. Control Visibility Flags
+## 8. Episode Selector
+
+The SDK can render an internal episode selector at the bottom of the reels player. It is disabled by default, so existing integrations do not change unless the host app passes `episodeSelectorConfig.enabled = true`.
+
+Use this when the host app wants the SDK to draw the episode selector UI instead of drawing an app-side `EpisodeBottomSheet`.
+
+The host app owns:
+
+- Episode list and current index.
+- Locked/unlocked state.
+- Subscription, payment, login, parental gate, and entitlement checks.
+- Pagination and playback URL fetching.
+- Updating `contentList` and `index` after an episode is selected.
+
+The SDK only renders the selector and emits callbacks.
+
+### Episode selector imports
+
+```kotlin
+import com.app.reelssdk.listener.ReelsPlayerStateListener
+import com.app.reelssdk.model.ReelsEpisodeSelectorConfig
+import com.app.reelssdk.model.ReelsEpisodeSelectorItem
+import com.app.reelssdk.model.ReelsEpisodeSelectorListener
+import com.app.reelssdk.model.ReelsPlayerModel
+import com.app.reelssdk.ui.MtvReelsPlayerSdk
+```
+
+### Host model example
+
+This is only an example app model. Use your own API/entity model and map it to the SDK models.
+
+```kotlin
+data class EpisodeUiModel(
+    val id: String,
+    val title: String,
+    val hlsUrl: String?,
+    val mpdUrl: String?,
+    val posterUrl: String?,
+    val episodeNumber: Int,
+    val seasonId: String?,
+    val isLocked: Boolean,
+    val progressFraction: Float?,
+    val ageRating: String?,
+    val genre: String?
+)
+```
+
+### Map episodes to player items and selector items
+
+```kotlin
+val playerModels = episodes.map { episode ->
+    ReelsPlayerModel(
+        id = episode.id,
+        hlsUrl = episode.hlsUrl,
+        mpdUrl = episode.mpdUrl,
+        imageUrl = episode.posterUrl,
+        thumbnail = episode.posterUrl,
+        title = episode.title,
+        episodeTitle = episode.title,
+        episodeNumber = episode.episodeNumber.toString(),
+        seasonNumber = episode.seasonId,
+        ageRating = episode.ageRating
+    )
+}
+
+val selectorItems = episodes.map { episode ->
+    ReelsEpisodeSelectorItem(
+        id = episode.id,
+        title = episode.title,
+        episodeNumber = episode.episodeNumber,
+        seasonId = episode.seasonId,
+        isLocked = episode.isLocked,
+        progressFraction = episode.progressFraction,
+        ageRating = episode.ageRating,
+        genre = episode.genre
+    )
+}
+```
+
+### Enable the selector from a third-party app
+
+Keep the selected index in the host app state and pass it to both `index` and `episodeSelectorConfig.currentIndex`.
+
+```kotlin
+@Composable
+fun EpisodeReelsScreen(
+    episodes: List<EpisodeUiModel>,
+    selectedIndex: Int,
+    onSelectedIndexChange: (Int) -> Unit,
+    onLoadMoreEpisodes: () -> Unit,
+    onLockedEpisode: (EpisodeUiModel?) -> Unit,
+    close: () -> Unit
+) {
+    val playerModels = episodes.map { episode ->
+        ReelsPlayerModel(
+            id = episode.id,
+            hlsUrl = episode.hlsUrl,
+            mpdUrl = episode.mpdUrl,
+            imageUrl = episode.posterUrl,
+            thumbnail = episode.posterUrl,
+            title = episode.title,
+            episodeTitle = episode.title,
+            episodeNumber = episode.episodeNumber.toString(),
+            seasonNumber = episode.seasonId,
+            ageRating = episode.ageRating
+        )
+    }
+
+    val selectorItems = episodes.map { episode ->
+        ReelsEpisodeSelectorItem(
+            id = episode.id,
+            title = episode.title,
+            episodeNumber = episode.episodeNumber,
+            seasonId = episode.seasonId,
+            isLocked = episode.isLocked,
+            progressFraction = episode.progressFraction,
+            ageRating = episode.ageRating,
+            genre = episode.genre
+        )
+    }
+
+    MtvReelsPlayerSdk(
+        contentList = playerModels,
+        index = selectedIndex,
+        episodeSelectorConfig = ReelsEpisodeSelectorConfig(
+            enabled = true,
+            episodes = selectorItems,
+            currentIndex = selectedIndex,
+            totalCount = selectorItems.size,
+            groupSize = 10,
+            columns = 5
+        ),
+        episodeSelectorListener = object : ReelsEpisodeSelectorListener {
+            override fun onEpisodeSelected(
+                index: Int,
+                item: ReelsEpisodeSelectorItem
+            ) {
+                onSelectedIndexChange(index)
+                // If the selected episode needs a fresh playback URL,
+                // fetch it in the host app, update playerModels, then pass
+                // the updated contentList back into MtvReelsPlayerSdk.
+            }
+
+            override fun onLockedEpisodeClick(
+                index: Int,
+                item: ReelsEpisodeSelectorItem?
+            ) {
+                onLockedEpisode(episodes.getOrNull(index))
+            }
+
+            override fun onEpisodeSelectorExpandedChanged(isExpanded: Boolean) {
+                // Optional analytics or host UI coordination.
+            }
+        },
+        playerStateListener = object : ReelsPlayerStateListener {
+            override fun onReelChanged(position: Int) {
+                onSelectedIndexChange(position)
+            }
+
+            override fun onPreloadNext(index: Int) {
+                val remainingItems = playerModels.size - 1 - index
+                if (remainingItems <= 3) {
+                    onLoadMoreEpisodes()
+                }
+            }
+        },
+        onPlayerBack = { close() },
+        setFullScreen = {}
+    )
+}
+```
+
+### Episode selector callback rules
+
+- Pass `enabled = true`; otherwise the selector is not rendered.
+- Pass one `ReelsEpisodeSelectorItem` for each episode the user can see in the selector.
+- Keep `currentIndex` synced with the reel currently playing.
+- When `onEpisodeSelected(index, item)` is called, update host state and pass the new `index`/`contentList` back to `MtvReelsPlayerSdk`.
+- When `onLockedEpisodeClick(index, item)` is called, show the app's login, subscription, payment, or parental-gate flow.
+- Do not put payment or entitlement decisions in the SDK.
+- Do not import app-only models into the SDK.
+- The selector currently does not render a Watch Now button; `onWatchNowClick` exists only for API compatibility.
+
+If the app has more episodes than are currently loaded, prefer passing `totalCount = selectorItems.size` until the next page is loaded. If `totalCount` is larger than `episodes.size`, the SDK can show unloaded episode numbers, but it cannot call `onEpisodeSelected` until the host app provides the corresponding `ReelsEpisodeSelectorItem`.
+
+## 9. Control Visibility Flags
 
 Controls can be configured globally through `ReelsPlayerConfig.controls`:
 
@@ -425,7 +610,7 @@ ReelsPlayerModel(
 Per-item `controlsConfig` takes priority over global `ReelsPlayerConfig.controls`.
 In the reels UI, the rendered controls are `play`, `pause`, `share`, `bookmark`, `seekbar`, `settings`, `fullscreen`, and `exitFullscreen`.
 
-## 9. Custom Icons And Color
+## 10. Custom Icons And Color
 
 The host app can provide icons through `ReelsPlayerCustomControls`.
 
@@ -454,12 +639,13 @@ val reel = ReelsPlayerModel(
 
 Use vector drawables or PNG drawables from the host app. If a drawable is not supplied, the SDK uses its default Compose icon.
 
-## 10. Reels UI Behavior
+## 11. Reels UI Behavior
 
 The reels player provides:
 
 - Vertical scroll feed.
 - Active page playback only.
+- Automatic scroll to the next reel when the active content completes.
 - Next page prefetch signal.
 - Media3 video surface remains visible while the first frame is decoded.
 - Fast-start playback using initial low bitrate and short startup buffer.
@@ -468,9 +654,11 @@ The reels player provides:
 - Auto-hide controls while video is playing.
 - Controls stay visible while paused, settings/share sheet is open, or seekbar is being scrubbed.
 - Expand/collapse changes only video surface size, not the controls positions.
+- Internal episode selector stays fixed at the bottom when enabled.
+- Other controls are hidden while the episode selector is expanded.
 - No floating plus button on the player.
 
-## 11. Share Functionality
+## 12. Share Functionality
 
 If `controls.share = true`, the reels player shows a custom bottom sheet with installed share apps:
 
@@ -499,7 +687,7 @@ ReelsPlayerModel(
 )
 ```
 
-## 12. Settings Bottom Sheet
+## 13. Settings Bottom Sheet
 
 If `controls.settings = true`, reels mode opens a bottom sheet with:
 
@@ -512,7 +700,7 @@ The left side shows the categories vertically. The right side shows the selected
 
 Settings are applied directly to the active Media3 player.
 
-## 13. Expand And Collapse
+## 14. Expand And Collapse
 
 If `controls.fullscreen` and `controls.exitFullscreen` are enabled:
 
@@ -520,7 +708,7 @@ If `controls.fullscreen` and `controls.exitFullscreen` are enabled:
 - Expanded mode scales the video edge-to-edge.
 - Controls keep the same screen position while expand/collapse changes only the video surface.
 
-## 14. Recommended Activity Setup
+## 15. Recommended Activity Setup
 
 For a reels-only screen, make the screen edge-to-edge and let the player fill available space.
 
@@ -541,11 +729,11 @@ class ReelsActivity : FragmentActivity() {
 
 If your app uses a Compose `NavHost`, place `ReelsPlayerScreen` as a full-screen destination.
 
-## 15. Legacy Parameters
+## 16. Legacy Parameters
 
 This reels branch always renders the reels player. Existing SDK parameters such as `mode`, `playerMode`, `pipListener`, and `isInPipMode` are kept only for source compatibility with older app code and are ignored by the reels implementation. New integrations should not pass those parameters.
 
-## 16. Publishing On JitPack
+## 17. Publishing On JitPack
 
 Before creating a release tag, verify the SDK from a clean `reelssdk` branch checkout:
 
@@ -561,11 +749,12 @@ git status --short
 The repository contains `jitpack.yml` with:
 
 ```yaml
-jdk:
-  - openjdk17
+before_install:
+  - sdk update
+  - sdk install java 17.0.12-tem
 
 install:
-  - ./gradlew --no-daemon -Dkotlin.compiler.execution.strategy=in-process :reelssdk:publishToMavenLocal
+  - export JAVA_HOME=$HOME/.sdkman/candidates/java/17.0.12-tem && export PATH=$JAVA_HOME/bin:$PATH && ./gradlew --no-daemon -Dkotlin.compiler.execution.strategy=in-process :reelssdk:publishToMavenLocal
 ```
 
 The `reelssdk` module uses `maven-publish`, publishes the `release` variant, and includes a sources jar. For a new public release, update `reelssdk/build.gradle.kts`:
@@ -573,40 +762,40 @@ The `reelssdk` module uses `maven-publish`, publishes the `release` variant, and
 ```kotlin
 groupId = "com.github.kamleshmultitv"
 artifactId = "mtvreelssdk"
-version = "reels-1.0.5"
+version = "reels-1.0.7"
 ```
 
 After `publishToMavenLocal`, verify the generated Maven artifact exists:
 
 ```bash
-ls ~/.m2/repository/com/github/kamleshmultitv/mtvreelssdk/reels-1.0.5
+ls ~/.m2/repository/com/github/kamleshmultitv/mtvreelssdk/reels-1.0.7
 ```
 
 Expected files include:
 
-- `mtvreelssdk-reels-1.0.5.aar`
-- `mtvreelssdk-reels-1.0.5.pom`
-- `mtvreelssdk-reels-1.0.5-sources.jar`
+- `mtvreelssdk-reels-1.0.7.aar`
+- `mtvreelssdk-reels-1.0.7.pom`
+- `mtvreelssdk-reels-1.0.7-sources.jar`
 
 Then commit, push, and tag the exact commit:
 
 ```bash
 git add .
-git commit -m "Release reels SDK reels-1.0.5"
-git tag reels-1.0.5
+git commit -m "Release reels SDK reels-1.0.7"
+git tag -a reels-1.0.7 -m "Release reels SDK 1.0.7"
 git push origin main
-git push origin reels-1.0.5
+git push origin reels-1.0.7
 ```
 
 After JitPack finishes building the tag, third-party apps can use:
 
 ```kotlin
-implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.5")
+implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.7")
 ```
 
 Keep release work branch-safe by committing and tagging only from a clean `main` branch.
 
-## 17. DRM Content
+## 18. DRM Content
 
 For Widevine/DASH:
 
@@ -630,7 +819,7 @@ ReelsPlayerModel(
 )
 ```
 
-## 18. Subtitles
+## 19. Subtitles
 
 Pass an SRT URL:
 
@@ -644,13 +833,14 @@ ReelsPlayerModel(
 
 The settings bottom sheet shows available text tracks and lets the user select a caption.
 
-## 19. Testing Checklist
+## 20. Testing Checklist
 
 Before release, verify:
 
 - Reels list opens full screen.
 - First visible reel starts automatically.
 - Next reel starts when scrolled into view.
+- Completed content automatically scrolls to the next item when one exists.
 - Previous/inactive reels pause.
 - First decoded frame is rendered by the player surface instead of a thumbnail overlay.
 - Slow networks show loading state until playback is ready.
@@ -665,12 +855,14 @@ Before release, verify:
 - Disabled controls are hidden.
 - Back navigation closes the reels screen.
 - Paging loads more data before the user reaches the end.
+- Episode selector is hidden by default for old integrations.
+- Episode selector opens from the bottom, highlights the current episode, and calls host callbacks for unlocked/locked items.
 
-## 20. Troubleshooting
+## 21. Troubleshooting
 
 ### Black screen or loader before playback
 
-Optimize the playback stream for fast startup. Prefer HLS/DASH ladders with short initial segments and reachable CDN URLs. The reels player keeps the Media3 surface visible and does not use `imageUrl` or `thumbnail` as a startup overlay.
+Optimize the playback stream for fast startup. Prefer HLS/DASH ladders with short initial segments and reachable CDN URLs. The reels player uses `thumbnail` or `imageUrl` as a poster fallback only until the first decoded video frame renders.
 
 ### Controls do not appear
 
@@ -694,6 +886,14 @@ Confirm apps are installed and the manifest `queries` entries are present after 
 
 Keep the same reel page alive. Selection state is preserved while the current reels player page remains composed.
 
+### Episode selector does not show
+
+Pass `episodeSelectorConfig = ReelsEpisodeSelectorConfig(enabled = true, episodes = selectorItems, currentIndex = selectedIndex)`. The SDK hides the selector when `enabled = false` or `episodes` is empty.
+
+### Episode click does not change video
+
+The SDK does not change app state by itself. In `onEpisodeSelected(index, item)`, update the host app's selected index and pass the updated `index` and `contentList` back into `MtvReelsPlayerSdk`.
+
 ### Wrong item plays after scroll
 
 Use stable `ReelsPlayerModel.id` values and do not reorder `contentList` unexpectedly while the user is scrolling.
@@ -702,7 +902,7 @@ Use stable `ReelsPlayerModel.id` values and do not reorder `contentList` unexpec
 
 Append new items to the existing feed state instead of replacing the entire screen state on every callback.
 
-## 21. Minimal Production Template
+## 22. Minimal Production Template
 
 Example state shape:
 

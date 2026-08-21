@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -25,6 +26,7 @@ import com.app.reelssdk.model.ReelsPlayerControlsConfig
 import com.app.reelssdk.model.ReelsPlayerModel
 import com.app.reelssdk.ui.MainContainer
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -41,6 +43,7 @@ fun ReelsContainer(
 ) {
     val pageCount = contentList?.size ?: 0
     var isFullScreen by remember { mutableStateOf(startInFullScreen) }
+    val coroutineScope = rememberCoroutineScope()
     val showEpisodeSelector =
         episodeSelectorConfig.enabled && episodeSelectorConfig.episodes.isNotEmpty()
     var isEpisodeSelectorExpanded by remember { mutableStateOf(false) }
@@ -148,7 +151,20 @@ fun ReelsContainer(
                 isReelPageActive = page == pagerState.settledPage,
                 controlsConfig = controlsConfig,
                 showEpisodeSelector = showEpisodeSelector,
-                isEpisodeSelectorExpanded = isEpisodeSelectorExpanded
+                isEpisodeSelectorExpanded = isEpisodeSelectorExpanded,
+                onPlaybackCompleted = {
+                    val nextPage = page + 1
+                    if (
+                        page == pagerState.settledPage &&
+                        nextPage < pageCount &&
+                        !pagerState.isScrollInProgress
+                    ) {
+                        isEpisodeSelectorExpanded = false
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(nextPage)
+                        }
+                    }
+                }
             )
         }
 
