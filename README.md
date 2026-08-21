@@ -10,6 +10,29 @@ dependencies {
 }
 ```
 
+## Sample App
+
+This repository includes a sample app in `:app`.
+
+For local SDK development, the sample app uses the source module:
+
+```kotlin
+implementation(project(":reelssdk"))
+```
+
+The sample app also keeps the existing mobile SDK dependency so both SDKs are tested in the same APK:
+
+```kotlin
+implementation("com.github.kamleshmultitv:mtvplayersdk:mobile-2.0.36")
+implementation(project(":reelssdk"))
+```
+
+To test the published JitPack artifact instead of local source, switch the app dependency to:
+
+```kotlin
+implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.5")
+```
+
 ## Public API
 
 ```kotlin
