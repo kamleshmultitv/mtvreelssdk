@@ -1,6 +1,7 @@
 package com.app.reelssdk.listener
 
 import androidx.media3.common.PlaybackException
+import com.app.reelssdk.model.ReelsPlayerModel
 
 interface ReelsPlayerStateListener {
 
@@ -27,6 +28,8 @@ interface ReelsPlayerStateListener {
     fun onPreloadNext(index: Int) {}
 
     fun onMuteStateChanged(isMuted: Boolean) {}
+
+    fun onWatchlistClick(index: Int, item: ReelsPlayerModel?, isWatchlisted: Boolean) {}
 
     fun onCastPlaybackStateChanged(
         playerState: Int,

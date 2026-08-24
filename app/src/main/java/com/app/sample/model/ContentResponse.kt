@@ -79,6 +79,12 @@ data class ContentItem(
 	@field:SerializedName("hls_url")
 	val hlsUrl: String? = null,
 
+	@field:SerializedName(
+		value = "sprite_url",
+		alternate = ["spriteUrl", "sprite", "preview_sprite", "previewSprite", "trickplay_url", "trickplayUrl"]
+	)
+	val spriteUrl: String? = null,
+
 	@field:SerializedName("source")
 	val source: String? = null,
 

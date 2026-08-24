@@ -85,7 +85,7 @@ private fun ForwardBackwardButtonsOverlayUi(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        if (isControllerVisible && ((isPlaying && controlsConfig.pause) || (!isPlaying && controlsConfig.play))) {
+        if (isControllerVisible && controlsConfig.playPause) {
             Box(
                 modifier = Modifier
                     .size(playPauseButtonSize)

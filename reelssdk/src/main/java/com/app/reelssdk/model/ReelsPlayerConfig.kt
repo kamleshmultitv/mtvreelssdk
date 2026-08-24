@@ -5,14 +5,26 @@ data class ReelsPlayerConfig(
 )
 
 data class ReelsPlayerControlsConfig(
-    val play: Boolean = true,
-    val pause: Boolean = true,
+    val back: Boolean = true,
+    val title: Boolean = true,
+    val playPause: Boolean = true,
+    val showActionLabels: Boolean = true,
     val settings: Boolean = true,
+    val settingsClose: Boolean = true,
     val fullscreen: Boolean = true,
     val exitFullscreen: Boolean = true,
     val share: Boolean = true,
-    val bookmark: Boolean = true,
-    val seekbar: Boolean = true
+    val shareMore: Boolean = true,
+    val watchlist: Boolean = true,
+    val seekbar: Boolean = true,
+    val spritePreview: Boolean = true,
+    val episodeSelector: Boolean = true,
+    val episodeSelectorLeadingIcon: Boolean = true,
+    val episodeSelectorTrailingIcon: Boolean = true,
+    val lockedEpisodeIcon: Boolean = true,
+    val holdMuteIndicator: Boolean = true,
+    val fastForwardIndicator: Boolean = true,
+    val adClose: Boolean = true
 )
 
 data class ReelsEpisodeSelectorItem(

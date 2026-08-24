@@ -29,15 +29,6 @@ import org.json.JSONObject
 
 object FileUtils {
 
-    private val defaultControlsConfig = ReelsPlayerControlsConfig(
-        share = true,
-        bookmark = false,
-        seekbar = true,
-        settings = true,
-        fullscreen = true,
-        exitFullscreen = true
-    )
-
     /* ---------------------------------- */
     /* DRM TOKEN                           */
     /* ---------------------------------- */
@@ -131,6 +122,7 @@ object FileUtils {
                     skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
                     nextEpisode = override.nextEpisode ?: NextEpisode(enableNextEpisode = false),
                     shareUrl = override.url,
+                    spriteUrl = override.spriteUrl,
                     controlsConfig = defaultControlsConfig,
                     customControls = defaultControls()
                 )
@@ -217,6 +209,7 @@ object FileUtils {
             episodeNumber = content.episodeNumber.orEmpty(),
             duration = content.duration.orEmpty(),
             srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
+            spriteUrl = override?.spriteUrl ?: content.spriteUrl?.takeIf { it.isNotBlank() },
             shareUrl = content.shareUrl?.takeIf { it.isNotBlank() }
                 ?: content.permalink?.takeIf { it.isNotBlank() },
 
@@ -265,7 +258,7 @@ object FileUtils {
     )
 
     private fun defaultControls() = ReelsPlayerCustomControls(
-        iconTintRes = R.color.white,
+        iconTintRes = com.app.mtvdownloader.R.color.white,
         playIconRes = R.drawable.ic_play,
         pauseIconRes = R.drawable.ic_pause,
         backIconRes = R.drawable.ic_back_arrow,
@@ -273,8 +266,40 @@ object FileUtils {
         fullScreenIconRes = R.drawable.ic_collapse,
         exitFullScreenIconRes = R.drawable.ic_expand,
         crossFadeIconRes = R.drawable.ic_cross,
+        settingsCloseIconRes = R.drawable.ic_cross,
         shareIconRes = R.drawable.ic_share,
-        bookmarkIconRes = R.drawable.ic_bookmark
+        shareMoreIconRes = R.drawable.ic_share,
+        watchlistIconRes = R.drawable.ic_watchlist,
+        watchlistedIconRes = R.drawable.ic_watchlisted,
+        episodeSelectorIconRes = R.drawable.ic_episode,
+        episodeSelectorCollapseIconRes = R.drawable.ic_cross,
+        lockedEpisodeIconRes = R.drawable.ic_lock,
+        holdMuteIconRes = R.drawable.ic_mute,
+        fastForwardIconRes = R.drawable.ic_forward,
+        adCloseIconRes = R.drawable.ic_cross
+    )
+
+    private val defaultControlsConfig = ReelsPlayerControlsConfig(
+        playPause = true,
+        title = true,
+        showActionLabels = true,
+        share = true,
+        watchlist = true,
+        seekbar = true,
+        spritePreview = true,
+        back = true,
+        settings = true,
+        settingsClose = true,
+        fullscreen = true,
+        exitFullscreen = true,
+        shareMore = true,
+        episodeSelector = true,
+        episodeSelectorLeadingIcon = true,
+        episodeSelectorTrailingIcon = true,
+        lockedEpisodeIcon = true,
+        holdMuteIndicator = true,
+        fastForwardIndicator = true,
+        adClose = true
     )
 
     @OptIn(UnstableApi::class)

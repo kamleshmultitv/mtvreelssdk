@@ -76,6 +76,7 @@ fun SelectorHeader(
     selectedItemsState: MutableMap<Int, Int>? = null,
     selectedOptionId: Int? = null,
     backgroundColor: Color = Color.Black.copy(alpha = 0.9f),
+    showCloseIcon: Boolean = true,
     onSelectedOptionChange: (Int?) -> Unit = {},
     closeOptionCard: (Boolean) -> Unit = {}
 ) {
@@ -126,6 +127,7 @@ fun SelectorHeader(
                 onOptionSelected = selectOption,
                 selectedItems = selectedItems,
                 captionOptions = captionOptions,
+                showCloseIcon = showCloseIcon,
                 closeOptionCard = closeOptionCard
             )
             return@Column
@@ -151,19 +153,22 @@ fun SelectorHeader(
                 }
             }
 
-            IconButton(
-                onClick = {
-                    exoPlayer?.play()
-                    closeOptionCard(false)
+            if (showCloseIcon) {
+                IconButton(
+                    onClick = {
+                        exoPlayer?.play()
+                        closeOptionCard(false)
+                    }
+                ) {
+                    CustomIcon(
+                        resId = playerModel?.customControls?.settingsCloseIconRes
+                            ?: playerModel?.customControls?.crossFadeIconRes,
+                        defaultIcon = Icons.Default.Close,
+                        contentDescription = "Close",
+                        modifier = Modifier.size(24.dp),
+                        tint = playerModel?.customControls?.iconTintRes
+                    )
                 }
-            ) {
-                CustomIcon(
-                    resId = playerModel?.customControls?.crossFadeIconRes,
-                    defaultIcon = Icons.Default.Close,
-                    contentDescription = "Close",
-                    modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes
-                )
             }
         }
 
@@ -196,6 +201,7 @@ private fun TwoPaneSettingsContent(
     onOptionSelected: (Int) -> Unit,
     selectedItems: MutableMap<Int, Int>,
     captionOptions: List<TextTrackOption>,
+    showCloseIcon: Boolean,
     closeOptionCard: (Boolean) -> Unit
 ) {
     Row(
@@ -212,19 +218,22 @@ private fun TwoPaneSettingsContent(
             fontWeight = FontWeight.SemiBold
         )
 
-        IconButton(
-            onClick = {
-                exoPlayer?.play()
-                closeOptionCard(false)
+        if (showCloseIcon) {
+            IconButton(
+                onClick = {
+                    exoPlayer?.play()
+                    closeOptionCard(false)
+                }
+            ) {
+                CustomIcon(
+                    resId = playerModel?.customControls?.settingsCloseIconRes
+                        ?: playerModel?.customControls?.crossFadeIconRes,
+                    defaultIcon = Icons.Default.Close,
+                    contentDescription = "Close",
+                    modifier = Modifier.size(22.dp),
+                    tint = playerModel?.customControls?.iconTintRes
+                )
             }
-        ) {
-            CustomIcon(
-                resId = playerModel?.customControls?.crossFadeIconRes,
-                defaultIcon = Icons.Default.Close,
-                contentDescription = "Close",
-                modifier = Modifier.size(22.dp),
-                tint = playerModel?.customControls?.iconTintRes
-            )
         }
     }
 

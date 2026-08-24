@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -78,6 +80,7 @@ import com.app.reelssdk.listener.ReelsPlayerStateListener
 import com.app.reelssdk.model.CuePoint
 import com.app.reelssdk.model.CueType
 import com.app.reelssdk.model.ReelsPlayerControlsConfig
+import com.app.reelssdk.model.ReelsPlayerCustomControls
 import com.app.reelssdk.model.ReelsPlayerModel
 import com.app.reelssdk.ui.ads.LShapeAdContainer
 import com.app.reelssdk.ui.reels.ReelsSettingsSheet
@@ -101,6 +104,8 @@ fun MainContainer(
     controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
     showEpisodeSelector: Boolean = false,
     isEpisodeSelectorExpanded: Boolean = false,
+    isInPictureInPictureMode: Boolean = false,
+    onControlsVisibilityChanged: (Boolean) -> Unit = {},
     onPlaybackCompleted: () -> Unit = {}
 ) {
     if (LocalInspectionMode.current) {
@@ -150,6 +155,7 @@ fun MainContainer(
     var isSeekbarDragging by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
     var fastForwardIndicatorSide by remember { mutableStateOf<HoldSide?>(null) }
+    var isHoldMuteIndicatorVisible by remember { mutableStateOf(false) }
     val reelsSettingsSelectedItems = remember(selectedIndex.intValue) {
         mutableStateMapOf<Int, Int>()
     }
@@ -424,8 +430,14 @@ fun MainContainer(
         imaCuePoints.clear()
     }
 
-    LaunchedEffect(exoPlayer, isReelPageActive) {
+    LaunchedEffect(isReelPageActive, isControllerVisible) {
         if (isReelPageActive) {
+            onControlsVisibilityChanged(isControllerVisible)
+        }
+    }
+
+    LaunchedEffect(exoPlayer, isReelPageActive, isEpisodeSelectorExpanded) {
+        if (isReelPageActive && !isEpisodeSelectorExpanded) {
             exoPlayer?.playWhenReady = true
             exoPlayer?.play()
         } else {
@@ -467,10 +479,17 @@ fun MainContainer(
         }
     }
 
+    LaunchedEffect(isInPictureInPictureMode) {
+        if (isInPictureInPictureMode) {
+            isControllerVisible = false
+            isSettingsClick = false
+            fastForwardIndicatorSide = null
+            isHoldMuteIndicatorVisible = false
+            showLShapeAd = false
+        }
+    }
 
-
-
-    LaunchedEffect(exoPlayer, lBandCuePoints) {
+    LaunchedEffect(exoPlayer, lBandCuePoints, isInPictureInPictureMode) {
 
         val player = exoPlayer ?: return@LaunchedEffect
 
@@ -485,6 +504,7 @@ fun MainContainer(
                     && currentPos >= cue.positionMs
                     && !isAdsShowing
                     && isFullScreen
+                    && !isInPictureInPictureMode
                 ) {
 
                     triggeredLBands.add(cue.id)
@@ -515,7 +535,10 @@ fun MainContainer(
         LShapeAdContainer(
             playerModel = playerModel,
             isFullScreen = isFullScreen,
-            isVisible = showLShapeAd && !isAdsShowing,
+            isVisible = showLShapeAd && !isAdsShowing && !isInPictureInPictureMode,
+            closeButtonEnabled = modelControlsConfig.adClose,
+            closeIconRes = playerModel?.customControls?.adCloseIconRes,
+            iconTintRes = playerModel?.customControls?.iconTintRes,
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
@@ -567,55 +590,70 @@ fun MainContainer(
                     modifier = Modifier
                         .then(videoSurfaceModifier)
                         .background(Color.Black)
-                        .pointerInput(isSettingsClick, exoPlayer) {
-                            var holdMutePreviousVolume: Float? = null
-                            var holdFastForwardPreviousParams: PlaybackParameters? = null
-                            detectTapGestures(
-                                onPress = { offset ->
-                                    val holdSide = holdSideForOffset(offset.x, size.width)
-                                    try {
-                                        tryAwaitRelease()
-                                    } finally {
-                                        if (holdSide != null) {
-                                            restoreFastForwardHold(
-                                                player = exoPlayer,
-                                                previousParameters = holdFastForwardPreviousParams
-                                            )
-                                            fastForwardIndicatorSide = null
-                                            holdFastForwardPreviousParams = null
-                                        } else {
-                                            restoreHoldMute(
-                                                player = exoPlayer,
-                                                previousVolume = holdMutePreviousVolume,
-                                                playerStateListener = playerStateListener
-                                            )
-                                            holdMutePreviousVolume = null
+                        .then(
+                            if (!isInPictureInPictureMode) {
+                                Modifier.pointerInput(isSettingsClick, exoPlayer) {
+                                    var holdMutePreviousVolume: Float? = null
+                                    var holdFastForwardPreviousParams: PlaybackParameters? = null
+                                    detectTapGestures(
+                                        onPress = { offset ->
+                                            val holdSide = holdSideForOffset(offset.x, size.width)
+                                            try {
+                                                tryAwaitRelease()
+                                            } finally {
+                                                if (holdSide != null) {
+                                                    restoreFastForwardHold(
+                                                        player = exoPlayer,
+                                                        previousParameters = holdFastForwardPreviousParams
+                                                    )
+                                                    fastForwardIndicatorSide = null
+                                                    isHoldMuteIndicatorVisible = false
+                                                    holdFastForwardPreviousParams = null
+                                                } else {
+                                                    restoreHoldMute(
+                                                        player = exoPlayer,
+                                                        previousVolume = holdMutePreviousVolume,
+                                                        playerStateListener = playerStateListener
+                                                    )
+                                                    isHoldMuteIndicatorVisible = false
+                                                    holdMutePreviousVolume = null
+                                                }
+                                            }
+                                        },
+                                        onLongPress = { offset ->
+                                            val holdSide = holdSideForOffset(offset.x, size.width)
+                                            if (holdSide != null) {
+                                                holdFastForwardPreviousParams =
+                                                    startFastForwardHold(player = exoPlayer)
+                                                fastForwardIndicatorSide = holdSide
+                                                isHoldMuteIndicatorVisible = false
+                                            } else {
+                                                holdMutePreviousVolume = muteForHold(
+                                                    player = exoPlayer,
+                                                    playerStateListener = playerStateListener
+                                                )
+                                                isHoldMuteIndicatorVisible =
+                                                    holdMutePreviousVolume != null
+                                            }
+                                        },
+                                        onTap = {
+                                            if (!isSettingsClick) {
+                                                isControllerVisible = !isControllerVisible
+                                            }
                                         }
-                                    }
-                                },
-                                onLongPress = { offset ->
-                                    val holdSide = holdSideForOffset(offset.x, size.width)
-                                    if (holdSide != null) {
-                                        holdFastForwardPreviousParams =
-                                            startFastForwardHold(player = exoPlayer)
-                                        fastForwardIndicatorSide = holdSide
-                                    } else {
-                                        holdMutePreviousVolume = muteForHold(
-                                            player = exoPlayer,
-                                            playerStateListener = playerStateListener
-                                        )
-                                    }
-                                },
-                                onTap = {
-                                    if (!isSettingsClick) {
-                                        isControllerVisible = !isControllerVisible
-                                    }
+                                    )
                                 }
-                            )
-                        }
+                            } else {
+                                Modifier
+                            }
+                        )
                 )
 
-                if (!hasRenderedFirstFrame && !posterUrl.isNullOrBlank()) {
+                if (
+                    !isInPictureInPictureMode &&
+                    !hasRenderedFirstFrame &&
+                    !posterUrl.isNullOrBlank()
+                ) {
                     AsyncImage(
                         model = posterUrl,
                         contentDescription = null,
@@ -627,7 +665,7 @@ fun MainContainer(
                     )
                 }
 
-                if (!isControllerVisible && !isSettingsClick) {
+                if (!isInPictureInPictureMode && !isControllerVisible && !isSettingsClick) {
                     Box(
                         modifier = Modifier
                             .matchParentSize()
@@ -646,6 +684,7 @@ fun MainContainer(
                                                     previousParameters = holdFastForwardPreviousParams
                                                 )
                                                 fastForwardIndicatorSide = null
+                                                isHoldMuteIndicatorVisible = false
                                                 holdFastForwardPreviousParams = null
                                             } else {
                                                 restoreHoldMute(
@@ -653,6 +692,7 @@ fun MainContainer(
                                                     previousVolume = holdMutePreviousVolume,
                                                     playerStateListener = playerStateListener
                                                 )
+                                                isHoldMuteIndicatorVisible = false
                                                 holdMutePreviousVolume = null
                                             }
                                         }
@@ -663,11 +703,13 @@ fun MainContainer(
                                             holdFastForwardPreviousParams =
                                                 startFastForwardHold(player = exoPlayer)
                                             fastForwardIndicatorSide = holdSide
+                                            isHoldMuteIndicatorVisible = false
                                         } else {
                                             holdMutePreviousVolume = muteForHold(
                                                 player = exoPlayer,
                                                 playerStateListener = playerStateListener
                                             )
+                                            isHoldMuteIndicatorVisible = holdMutePreviousVolume != null
                                         }
                                     },
                                     onTap = {
@@ -678,22 +720,40 @@ fun MainContainer(
                     )
                 }
 
-                if (!isControllerVisible && isLoading) {
+                if (!isInPictureInPictureMode && !isControllerVisible && isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
                         color = Color.White
                     )
                 }
 
-                fastForwardIndicatorSide?.let { side ->
-                    FastForwardHoldIndicator(
-                        side = side,
-                        modifier = Modifier.zIndex(5f)
-                    )
+                if (!isInPictureInPictureMode) {
+                    fastForwardIndicatorSide?.let { side ->
+                        if (modelControlsConfig.fastForwardIndicator) {
+                            FastForwardHoldIndicator(
+                                side = side,
+                                customControls = playerModel?.customControls,
+                                modifier = Modifier.zIndex(5f)
+                            )
+                        }
+                    }
                 }
 
                 AnimatedVisibility(
-                    visible = isControllerVisible && !isEpisodeSelectorExpanded,
+                    visible = isHoldMuteIndicatorVisible &&
+                        !isInPictureInPictureMode &&
+                        modelControlsConfig.holdMuteIndicator,
+                    modifier = Modifier.zIndex(5f),
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    HoldMuteIndicator(customControls = playerModel?.customControls)
+                }
+
+                AnimatedVisibility(
+                    visible = isControllerVisible &&
+                        !isEpisodeSelectorExpanded &&
+                        !isInPictureInPictureMode,
                     modifier = Modifier.zIndex(3f),
                     enter = fadeIn(),
                     exit = fadeOut()
@@ -714,6 +774,7 @@ fun MainContainer(
                             isControlsVisible = isControllerVisible,
                             onShowControls = { isControllerVisible = it },
                             isLoading = isLoading,
+                            playerStateListener = playerStateListener,
                             onBackPressed = { onPlayerBack(true) },
                             cuePoints = imaCuePoints,
                             controlsConfig = modelControlsConfig,
@@ -728,12 +789,13 @@ fun MainContainer(
                     }
                 }
 
-                if (isSettingsClick) {
+                if (isSettingsClick && !isInPictureInPictureMode) {
                     ReelsSettingsSheet(
                         playerModel = playerModel,
                         exoPlayer = exoPlayer,
                         selectedItemsState = reelsSettingsSelectedItems,
                         selectedOptionId = reelsSettingsSelectedOption,
+                        controlsConfig = modelControlsConfig,
                         onSelectedOptionChange = { optionId ->
                             reelsSettingsSelectedOption = optionId
                         },
@@ -801,8 +863,48 @@ private fun restoreFastForwardHold(
 }
 
 @Composable
+private fun HoldMuteIndicator(
+    customControls: ReelsPlayerCustomControls? = null,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = (-36).dp)
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.18f))
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.28f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                CustomIcon(
+                    resId = customControls?.holdMuteIconRes,
+                    defaultIcon = Icons.AutoMirrored.Filled.VolumeOff,
+                    contentDescription = "Muted",
+                    tint = customControls?.iconTintRes,
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun FastForwardHoldIndicator(
     side: HoldSide,
+    customControls: ReelsPlayerCustomControls? = null,
     modifier: Modifier = Modifier
 ) {
     val transition = rememberInfiniteTransition(label = "fastForwardHold")
@@ -839,10 +941,11 @@ private fun FastForwardHoldIndicator(
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.FastForward,
+            CustomIcon(
+                resId = customControls?.fastForwardIconRes,
+                defaultIcon = Icons.Default.FastForward,
                 contentDescription = "Fast forward",
-                tint = Color.White,
+                tint = customControls?.iconTintRes,
                 modifier = Modifier.size(24.dp)
             )
 

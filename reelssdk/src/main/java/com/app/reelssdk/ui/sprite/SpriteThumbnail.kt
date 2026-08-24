@@ -35,7 +35,8 @@ fun SpriteThumbnail(
     spriteUrl: String,
     positionMs: Long,
     modifier: Modifier = Modifier,
-    widthDp: Int = 120,              // width of 16:9 card
+    widthDp: Int = 120,
+    heightDp: Int? = null,
     columns: Int = 5,
     thumbnailsEachMs: Int = 5000,
     thumbnailsCount: Int? = null,
@@ -64,7 +65,7 @@ fun SpriteThumbnail(
         if (spriteUrl.isBlank()) return@LaunchedEffect
 
         try {
-            if (spriteUrl.endsWith(".vtt", true)) {
+            if (SpriteUtils.isVttUrl(spriteUrl)) {
                 val vttText = withContext(Dispatchers.IO) {
                     SpriteUtils.fetchTextFromUrl(spriteUrl)
                 }
@@ -152,10 +153,10 @@ fun SpriteThumbnail(
         }
     }
 
-    /* ---------------- FORCE 16:9 CARD ---------------- */
+    /* ---------------- CARD SIZE ---------------- */
 
     val targetWidthDp = widthDp
-    val targetHeightDp = (widthDp * 9f / 16f).roundToInt()
+    val targetHeightDp = heightDp ?: (widthDp * 9f / 16f).roundToInt()
 
     if (spriteBitmap == null) {
         Box(

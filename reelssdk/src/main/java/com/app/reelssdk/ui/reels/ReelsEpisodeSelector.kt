@@ -1,6 +1,9 @@
 package com.app.reelssdk.ui.reels
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,11 +27,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,7 +44,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,14 +54,19 @@ import androidx.compose.ui.unit.sp
 import com.app.reelssdk.model.ReelsEpisodeSelectorConfig
 import com.app.reelssdk.model.ReelsEpisodeSelectorItem
 import com.app.reelssdk.model.ReelsEpisodeSelectorListener
+import com.app.reelssdk.model.ReelsPlayerControlsConfig
+import com.app.reelssdk.model.ReelsPlayerCustomControls
+import com.app.reelssdk.ui.CustomIcon
 
 @Composable
 fun ReelsEpisodeSelector(
     config: ReelsEpisodeSelectorConfig,
     modifier: Modifier = Modifier,
+    customControls: ReelsPlayerCustomControls? = null,
+    controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
     listener: ReelsEpisodeSelectorListener? = null
 ) {
-    if (!config.enabled || config.episodes.isEmpty()) return
+    if (!controlsConfig.episodeSelector || !config.enabled || config.episodes.isEmpty()) return
 
     val safeTotal = maxOf(config.totalCount, config.episodes.size)
     if (safeTotal <= 0) return
@@ -77,10 +88,34 @@ fun ReelsEpisodeSelector(
         mutableIntStateOf(safeIndex / safeGroupSize)
     }
     val selectorShape = RoundedCornerShape(24.dp)
-    val selectorBackgroundColor =
-        if (expanded) Color(0xFF111111) else Color(0x99111111)
-    val selectorBorderColor =
-        if (expanded) Color.Transparent else Color.White.copy(alpha = 0.18f)
+    val selectorBackgroundBrush = if (expanded) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xEE111111),
+                Color(0xEE111111)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color.White.copy(alpha = 0.18f),
+                Color.White.copy(alpha = 0.08f),
+                Color.Black.copy(alpha = 0.34f)
+            )
+        )
+    }
+    val selectorBorderColor = if (expanded) {
+        Color.White.copy(alpha = 0.14f)
+    } else {
+        Color.White.copy(alpha = 0.26f)
+    }
+    val expandedChipHeight = 32.dp
+    val expandedChipShape = RoundedCornerShape(16.dp)
+    val trailingIconRotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = tween(durationMillis = 180),
+        label = "episodeSelectorTrailingIconRotation"
+    )
 
     LaunchedEffect(safeIndex) {
         if (expanded) {
@@ -95,7 +130,7 @@ fun ReelsEpisodeSelector(
             .navigationBarsPadding()
             .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
             .background(
-                color = selectorBackgroundColor,
+                brush = selectorBackgroundBrush,
                 shape = selectorShape
             )
             .border(
@@ -103,35 +138,74 @@ fun ReelsEpisodeSelector(
                 color = selectorBorderColor,
                 shape = selectorShape
             )
-            .padding(horizontal = 14.dp, vertical = 6.dp)
+            .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(38.dp)
+                .height(32.dp)
                 .clickable {
                     expanded = !expanded
                     listener?.onEpisodeSelectorExpandedChanged(expanded)
                 },
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (controlsConfig.episodeSelectorLeadingIcon) {
+                CustomIcon(
+                    resId = customControls?.episodeSelectorIconRes,
+                    defaultIcon = Icons.Default.MovieCreation,
+                    contentDescription = null,
+                    tint = customControls?.iconTintRes,
+                    modifier = Modifier.size(24.dp)
+                )
+
+                Spacer(modifier = Modifier.width(14.dp))
+            }
+
             Text(
-                text = "Episode $currentEpisodeNumber/$safeTotal",
+                text = "Episode $currentEpisodeNumber of $safeTotal",
                 color = Color.White,
-                fontSize = 16.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(12.dp))
 
-            Text(
-                text = if (expanded) "Close" else "Episodes",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
-            )
+            if (controlsConfig.episodeSelectorTrailingIcon) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .graphicsLayer {
+                            rotationZ = trailingIconRotation
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Crossfade(
+                        targetState = expanded,
+                        animationSpec = tween(durationMillis = 180),
+                        label = "episodeSelectorTrailingCustomIcon"
+                    ) { isExpanded ->
+                        CustomIcon(
+                            resId = if (isExpanded) {
+                                customControls?.episodeSelectorCollapseIconRes
+                            } else {
+                                customControls?.episodeSelectorExpandIconRes
+                            },
+                            defaultIcon = if (isExpanded) {
+                                Icons.Default.Close
+                            } else {
+                                Icons.Default.ChevronRight
+                            },
+                            contentDescription = null,
+                            tint = customControls?.iconTintRes,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
         }
 
         AnimatedVisibility(visible = expanded) {
@@ -142,46 +216,61 @@ fun ReelsEpisodeSelector(
                         .padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "$safeTotal Episodes",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
+                    Box(
                         modifier = Modifier
+                            .height(expandedChipHeight)
                             .border(
                                 width = 1.dp,
                                 color = Color.White.copy(alpha = 0.22f),
-                                shape = CircleShape
+                                shape = expandedChipShape
                             )
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
-
-                LazyRow(contentPadding = PaddingValues(vertical = 8.dp)) {
-                    items(groups, key = { it.group }) { range ->
-                        val selected = range.group == selectedGroup
-
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = range.label,
-                            color = if (selected) Color(0xFFFFC94A) else Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .border(
-                                    width = 1.dp,
-                                    color = if (selected) {
-                                        Color(0xFFFFC94A)
-                                    } else {
-                                        Color.White.copy(alpha = 0.25f)
-                                    },
-                                    shape = CircleShape
-                                )
-                                .clickable { selectedGroup = range.group }
-                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                            text = "$safeTotal Episodes",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
+
+                    LazyRow(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(start = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(groups, key = { it.group }) { range ->
+                            val selected = range.group == selectedGroup
+
+                            Box(
+                                modifier = Modifier
+                                    .height(expandedChipHeight)
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (selected) {
+                                            Color(0xFFFFC94A)
+                                        } else {
+                                            Color.White.copy(alpha = 0.25f)
+                                        },
+                                        shape = expandedChipShape
+                                    )
+                                    .clickable { selectedGroup = range.group }
+                                    .padding(horizontal = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = range.label,
+                                    color = if (selected) Color(0xFFFFC94A) else Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 val startIndex = (selectedGroup * safeGroupSize).coerceIn(0, safeTotal - 1)
                 val endIndexExclusive = minOf(safeTotal, startIndex + safeGroupSize)
@@ -206,6 +295,8 @@ fun ReelsEpisodeSelector(
                             index = index,
                             item = item,
                             isCurrent = index == safeIndex,
+                            customControls = customControls,
+                            controlsConfig = controlsConfig,
                             onClick = {
                                 if (item?.isLocked == true) {
                                     listener?.onLockedEpisodeClick(index, item)
@@ -229,6 +320,8 @@ private fun EpisodeTile(
     index: Int,
     item: ReelsEpisodeSelectorItem?,
     isCurrent: Boolean,
+    customControls: ReelsPlayerCustomControls?,
+    controlsConfig: ReelsPlayerControlsConfig,
     onClick: () -> Unit
 ) {
     val progress = item?.progressFraction?.coerceIn(0f, 1f) ?: 0f
@@ -267,11 +360,12 @@ private fun EpisodeTile(
             }
         }
 
-        if (item?.isLocked == true) {
-            Icon(
-                imageVector = Icons.Default.Lock,
+        if (item?.isLocked == true && controlsConfig.lockedEpisodeIcon) {
+            CustomIcon(
+                resId = customControls?.lockedEpisodeIconRes,
+                defaultIcon = Icons.Default.Lock,
                 contentDescription = "Locked",
-                tint = Color.White,
+                tint = customControls?.iconTintRes,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(3.dp)

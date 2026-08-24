@@ -59,7 +59,7 @@ fun UserActionWithText(
         Text(
             text = text,
             color = contentColor,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodySmall
         )
     }
 }

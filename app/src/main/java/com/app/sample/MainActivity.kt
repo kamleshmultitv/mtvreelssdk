@@ -1,6 +1,7 @@
 package com.app.sample
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
@@ -23,6 +24,7 @@ class MainActivity : FragmentActivity() {
     private val deepLinkStart = mutableLongStateOf(0L)
     private val deepLinkEnd = mutableLongStateOf(0L)
     private val deepLinkTotalClipDuration = mutableLongStateOf(0L)
+    private val isInPictureInPictureState = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,9 +41,25 @@ class MainActivity : FragmentActivity() {
                 deepLinkUrl = deepLinkUrl.value,
                 deepLinkStart = deepLinkStart.longValue,
                 deepLinkEnd = deepLinkEnd.longValue,
-                deepLinkTotalClipDuration = deepLinkTotalClipDuration.longValue
+                deepLinkTotalClipDuration = deepLinkTotalClipDuration.longValue,
+                isInPictureInPictureMode = isInPictureInPictureState.value
             )
         }
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        isInPictureInPictureState.value = isInPictureInPictureMode
+    }
+
+    @Suppress("DEPRECATION")
+    @Deprecated("Deprecated in Java")
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode)
+        isInPictureInPictureState.value = isInPictureInPictureMode
     }
 
     override fun onNewIntent(intent: Intent) {

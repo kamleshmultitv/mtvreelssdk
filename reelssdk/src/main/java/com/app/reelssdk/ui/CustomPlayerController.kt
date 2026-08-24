@@ -34,6 +34,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.reelssdk.listener.ReelsPlayerStateListener
 import com.app.reelssdk.model.CuePoint
 import com.app.reelssdk.model.ReelsPlayerControlsConfig
 import com.app.reelssdk.model.ReelsPlayerModel
@@ -54,6 +55,7 @@ fun CustomPlayerController(
     isControlsVisible: Boolean,
     onShowControls: (Boolean) -> Unit,
     isLoading: Boolean,
+    playerStateListener: ReelsPlayerStateListener? = null,
     onBackPressed: () -> Unit = {},
     cuePoints: List<CuePoint> = emptyList(),
     controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
@@ -205,7 +207,8 @@ fun CustomPlayerController(
             TopBar(
                 playerModel = playerModel,
                 isFullScreen = isCurrentlyFullScreen,
-                showContentTitle = true,
+                showContentTitle = controlsConfig.title,
+                showBackButton = controlsConfig.back,
                 onBackPressed = onBackPressed
             )
         }
@@ -288,7 +291,14 @@ fun CustomPlayerController(
                     .zIndex(3f),
                 customControls = playerModel?.customControls,
                 controlsConfig = controlsConfig,
-                onLikeClick = {},
+                isWatchlisted = playerModel?.isWatchlisted == true,
+                onWatchlistClick = {
+                    playerStateListener?.onWatchlistClick(
+                        index = index,
+                        item = playerModel,
+                        isWatchlisted = playerModel?.isWatchlisted == true
+                    )
+                },
                 onShareClick = {
                     showReelsShareSheet = true
                 },
@@ -306,6 +316,7 @@ fun CustomPlayerController(
         if (showReelsShareSheet) {
             ReelsShareSheet(
                 playerModel = playerModel,
+                controlsConfig = controlsConfig,
                 onDismiss = {
                     showReelsShareSheet = false
                 }

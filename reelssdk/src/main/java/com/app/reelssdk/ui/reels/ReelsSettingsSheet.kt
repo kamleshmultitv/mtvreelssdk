@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.reelssdk.model.ReelsPlayerControlsConfig
 import com.app.reelssdk.model.ReelsPlayerModel
 import com.app.reelssdk.ui.SelectorHeader
 import com.app.reelssdk.ui.SettingsLayoutMode
@@ -26,6 +27,7 @@ fun ReelsSettingsSheet(
     exoPlayer: ExoPlayer?,
     selectedItemsState: MutableMap<Int, Int>,
     selectedOptionId: Int?,
+    controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
     onSelectedOptionChange: (Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -59,6 +61,7 @@ fun ReelsSettingsSheet(
                 backgroundColor = sheetBackground,
                 selectedItemsState = selectedItemsState,
                 selectedOptionId = selectedOptionId,
+                showCloseIcon = controlsConfig.settingsClose,
                 onSelectedOptionChange = onSelectedOptionChange,
                 closeOptionCard = { isOpen ->
                     if (!isOpen) onDismiss()

@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -45,19 +44,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.app.reelssdk.model.ReelsPlayerControlsConfig
 import com.app.reelssdk.model.ReelsPlayerModel
+import com.app.reelssdk.ui.CustomIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReelsShareSheet(
     playerModel: ReelsPlayerModel?,
+    controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val shareText = remember(playerModel) { playerModel.buildShareText() }
-    val targets = remember(context, shareText) {
-        buildShareTargets(context = context, shareText = shareText)
+    val targets = remember(context, shareText, controlsConfig.shareMore) {
+        buildShareTargets(
+            context = context,
+            shareText = shareText,
+            includeMoreTarget = controlsConfig.shareMore
+        )
     }
 
     ModalBottomSheet(
@@ -96,10 +102,11 @@ fun ReelsShareSheet(
                     horizontalArrangement = Arrangement.spacedBy(22.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-                    targets.forEach { target ->
-                        ShareTargetButton(
-                            target = target,
-                            onClick = {
+            targets.forEach { target ->
+                ShareTargetButton(
+                    target = target,
+                    playerModel = playerModel,
+                    onClick = {
                                 launchShareTarget(
                                     context = context,
                                     target = target,
@@ -118,6 +125,7 @@ fun ReelsShareSheet(
 @Composable
 private fun ShareTargetButton(
     target: ShareTarget,
+    playerModel: ReelsPlayerModel?,
     onClick: () -> Unit
 ) {
     Column(
@@ -146,10 +154,11 @@ private fun ShareTargetButton(
                     modifier = Modifier.size(34.dp)
                 )
             } else {
-                Icon(
-                    imageVector = Icons.Default.MoreHoriz,
+                CustomIcon(
+                    resId = playerModel?.customControls?.shareMoreIconRes,
+                    defaultIcon = Icons.Default.MoreHoriz,
                     contentDescription = target.label,
-                    tint = Color.White,
+                    tint = playerModel?.customControls?.iconTintRes,
                     modifier = Modifier.size(30.dp)
                 )
             }
@@ -195,7 +204,8 @@ private val appShareTargets = listOf(
 
 private fun buildShareTargets(
     context: Context,
-    shareText: String
+    shareText: String,
+    includeMoreTarget: Boolean
 ): List<ShareTarget> {
     val packageManager = context.packageManager
     val targets = appShareTargets.mapNotNull { definition ->
@@ -214,7 +224,7 @@ private fun buildShareTargets(
         }
     }.toMutableList()
 
-    if (createShareIntent(shareText).resolveActivity(packageManager) != null) {
+    if (includeMoreTarget && createShareIntent(shareText).resolveActivity(packageManager) != null) {
         targets.add(
             ShareTarget(
                 label = "More",

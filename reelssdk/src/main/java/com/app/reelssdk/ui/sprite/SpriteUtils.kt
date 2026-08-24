@@ -26,7 +26,7 @@ object SpriteUtils {
 
     // Generic media detection (vtt/jpg/png/webp) for parsing manifests.
     private val mediaPattern = Pattern.compile(
-        """(?i)(https?://[^\s'"]+?\.(?:vtt|jpe?g|png|webp)(?:#[^\s'"]*)?)|([\w\-./]+?\.(?:vtt|jpe?g|png|webp)(?:#[^\s'"]*)?)"""
+        """(?i)(https?://[^\s'"]+?\.(?:vtt|jpe?g|png|webp)(?:\?[^\s'"]*)?(?:#[^\s'"]*)?)|([\w\-./]+?\.(?:vtt|jpe?g|png|webp)(?:\?[^\s'"]*)?(?:#[^\s'"]*)?)"""
     )
 
     private val attrPattern = Pattern.compile(
@@ -46,18 +46,35 @@ object SpriteUtils {
         val a = attrPattern.matcher(manifestText)
         while (a.find()) {
             val uri = a.group(1)
-            if (uri != null && (uri.endsWith(".vtt", true) ||
-                        uri.endsWith(".jpg", true) ||
-                        uri.endsWith(".jpeg", true) ||
-                        uri.endsWith(".png", true) ||
-                        uri.endsWith(".webp", true)
-                        )
-            ) {
+            if (uri != null && isPreviewResourceUrl(uri)) {
                 found.add(resolveRelativeUrl(uri, manifestUrl))
             }
         }
 
         return found.distinct()
+    }
+
+    fun preferredSpriteUrl(urls: List<String>): String? {
+        return urls.firstOrNull { isVttUrl(it) }
+            ?: urls.firstOrNull { url ->
+                val clean = stripQueryAndFragment(url)
+                clean.contains("sprite", ignoreCase = true) ||
+                    clean.contains("thumb", ignoreCase = true)
+            }
+            ?: urls.firstOrNull { isPreviewResourceUrl(it) }
+    }
+
+    fun isVttUrl(url: String): Boolean {
+        return stripQueryAndFragment(url).endsWith(".vtt", ignoreCase = true)
+    }
+
+    private fun isPreviewResourceUrl(url: String): Boolean {
+        val clean = stripQueryAndFragment(url)
+        return clean.endsWith(".vtt", true) ||
+            clean.endsWith(".jpg", true) ||
+            clean.endsWith(".jpeg", true) ||
+            clean.endsWith(".png", true) ||
+            clean.endsWith(".webp", true)
     }
 
     fun spriteUrlForVideo(videoUrl: String): String {
@@ -166,7 +183,7 @@ object SpriteUtils {
         val parsed = parseSpriteUrlsFromManifest(txt, manifestUrl)
         val extra = mutableListOf<String>()
         for (p in parsed) {
-            if (p.endsWith(".vtt", true)) {
+            if (isVttUrl(p)) {
                 val vtt = fetchTextFromUrl(p)
                 if (!vtt.isNullOrEmpty()) {
                     // find image refs inside vtt quickly using regex for .jpg/.png/webp

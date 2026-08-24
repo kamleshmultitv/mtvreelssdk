@@ -23,7 +23,8 @@ fun ContentScreen(
     deepLinkUrl: String?,
     deepLinkStart: Long,
     deepLinkEnd: Long,
-    deepLinkTotalClipDuration: Long
+    deepLinkTotalClipDuration: Long,
+    isInPictureInPictureMode: Boolean = false
 ) {
     val context = LocalContext.current
     val pagingItems = viewModel.contentListData.collectAsLazyPagingItems()
@@ -63,6 +64,7 @@ fun ContentScreen(
             deepLinkContent = deepLinkContent,
             isDeepLink = isDeepLink,
             isFullScreen = isFullScreen,
+            isInPictureInPictureMode = isInPictureInPictureMode,
             onFullScreenChange = { isFullScreen = it },
             onOverrideContent = { overrideContent = it }
         )

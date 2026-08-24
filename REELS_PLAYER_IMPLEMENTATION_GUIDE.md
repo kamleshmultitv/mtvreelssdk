@@ -214,10 +214,12 @@ fun ReelsFeedPlayer(
         index = 0,
         playerConfig = ReelsPlayerConfig(
             controls = ReelsPlayerControlsConfig(
-                play = true,
-                pause = true,
+                playPause = true,
+                title = true,
                 share = true,
-                bookmark = true,
+                watchlist = true,
+                showActionLabels = true,
+                episodeSelector = true,
                 seekbar = true,
                 settings = true,
                 fullscreen = true,
@@ -577,10 +579,12 @@ Controls can be configured globally through `ReelsPlayerConfig.controls`:
 ```kotlin
 ReelsPlayerConfig(
     controls = ReelsPlayerControlsConfig(
-        play = true,
-        pause = true,
+        playPause = true,
+        title = true,
         share = true,
-        bookmark = false,
+        watchlist = false,
+        showActionLabels = true,
+        episodeSelector = true,
         seekbar = true,
         settings = true,
         fullscreen = true,
@@ -597,8 +601,12 @@ ReelsPlayerModel(
     hlsUrl = "https://example.com/reel.m3u8",
     imageUrl = "https://example.com/reel.jpg",
     controlsConfig = ReelsPlayerControlsConfig(
+        playPause = true,
+        title = false,
         share = true,
-        bookmark = false,
+        watchlist = false,
+        showActionLabels = false,
+        episodeSelector = false,
         seekbar = true,
         settings = true,
         fullscreen = true,
@@ -608,7 +616,7 @@ ReelsPlayerModel(
 ```
 
 Per-item `controlsConfig` takes priority over global `ReelsPlayerConfig.controls`.
-In the reels UI, the rendered controls are `play`, `pause`, `share`, `bookmark`, `seekbar`, `settings`, `fullscreen`, and `exitFullscreen`.
+In the reels UI, the rendered controls are `playPause`, `title`, `share`, `watchlist`, `seekbar`, `settings`, `episodeSelector`, `fullscreen`, and `exitFullscreen`. Set `showActionLabels = false` to render the footer actions as icons only.
 
 ## 10. Custom Icons And Color
 
@@ -625,7 +633,8 @@ val controls = ReelsPlayerCustomControls(
     fullScreenIconRes = R.drawable.ic_expand,
     exitFullScreenIconRes = R.drawable.ic_collapse,
     shareIconRes = R.drawable.ic_share,
-    bookmarkIconRes = R.drawable.ic_bookmark,
+    watchlistIconRes = R.drawable.ic_watchlist,
+    watchlistedIconRes = R.drawable.ic_watchlisted,
     crossFadeIconRes = R.drawable.ic_close
 )
 
@@ -870,11 +879,12 @@ Make sure the item/global config has the relevant flags enabled:
 
 ```kotlin
 ReelsPlayerControlsConfig(
-    play = true,
-    pause = true,
+    playPause = true,
+    title = true,
     seekbar = true,
     settings = true,
-    share = true
+    share = true,
+    episodeSelector = true
 )
 ```
 
@@ -943,7 +953,8 @@ fun ThirdPartyReelsScreen(
                 fullScreenIconRes = R.drawable.ic_expand,
                 exitFullScreenIconRes = R.drawable.ic_collapse,
                 shareIconRes = R.drawable.ic_share,
-                bookmarkIconRes = R.drawable.ic_bookmark
+                watchlistIconRes = R.drawable.ic_watchlist,
+                watchlistedIconRes = R.drawable.ic_watchlisted
             )
         )
     }
@@ -953,12 +964,14 @@ fun ThirdPartyReelsScreen(
         index = 0,
         playerConfig = ReelsPlayerConfig(
             controls = ReelsPlayerControlsConfig(
-                play = true,
-                pause = true,
+                playPause = true,
+                title = true,
                 seekbar = true,
                 settings = true,
                 share = true,
-                bookmark = true,
+                watchlist = true,
+                showActionLabels = true,
+                episodeSelector = true,
                 fullscreen = true,
                 exitFullscreen = true
             )

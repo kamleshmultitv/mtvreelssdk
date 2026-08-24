@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.app.reelssdk.model.ReelsPlayerModel
+import com.app.reelssdk.ui.CustomIcon
 import com.google.android.gms.ads.AdSize
 
 @Composable
@@ -27,6 +27,8 @@ fun LShapeAdContainer(
     isVisible: Boolean,
     bannerAdsEnabled: Boolean? = null,
     closeButtonEnabled: Boolean = true,
+    closeIconRes: Int? = null,
+    iconTintRes: Int? = null,
     onCloseClick: () -> Unit = {},
     videoContent: @Composable () -> Unit
 ) {
@@ -158,10 +160,12 @@ fun LShapeAdContainer(
                     .padding(8.dp)
                     .background(Color.Black.copy(alpha = 0.45f))
             ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
+                CustomIcon(
+                    resId = closeIconRes,
                     contentDescription = "Close Ad",
-                    tint = Color.White
+                    defaultIcon = Icons.Default.Close,
+                    modifier = Modifier.size(24.dp),
+                    tint = iconTintRes
                 )
             }
         }

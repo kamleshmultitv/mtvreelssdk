@@ -21,8 +21,11 @@ fun MtvReelsPlayerSdk(
     setFullScreen: (Boolean) -> Unit = {},
     playerConfig: ReelsPlayerConfig = ReelsPlayerConfig(),
     episodeSelectorConfig: ReelsEpisodeSelectorConfig = ReelsEpisodeSelectorConfig(),
-    episodeSelectorListener: ReelsEpisodeSelectorListener? = null
+    episodeSelectorListener: ReelsEpisodeSelectorListener? = null,
+    isInPictureInPictureMode: Boolean? = null
 ) {
+    val isInPictureInPicture = rememberPictureInPictureMode(isInPictureInPictureMode)
+
     ReelsContainer(
         contentList = contentList,
         initialIndex = index,
@@ -32,6 +35,7 @@ fun MtvReelsPlayerSdk(
         startInFullScreen = startInFullScreen,
         controlsConfig = playerConfig.controls,
         episodeSelectorConfig = episodeSelectorConfig,
-        episodeSelectorListener = episodeSelectorListener
+        episodeSelectorListener = episodeSelectorListener,
+        isInPictureInPictureMode = isInPictureInPicture
     )
 }

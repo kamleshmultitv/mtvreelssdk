@@ -37,6 +37,7 @@ data class ReelsPlayerModel(
     val gamAdsConfig: GAMAdsConfig? = null,
     val skipIntro: SkipIntro? = null,
     val nextEpisode: NextEpisode? = null,
+    val isWatchlisted: Boolean = false,
     val customControls: ReelsPlayerCustomControls? = null,
     val controlsConfig: ReelsPlayerControlsConfig? = null,
     val isClipEnabled: Boolean = false,

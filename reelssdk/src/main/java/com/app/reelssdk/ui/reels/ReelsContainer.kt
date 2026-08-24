@@ -39,13 +39,13 @@ fun ReelsContainer(
     startInFullScreen: Boolean = false,
     controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
     episodeSelectorConfig: ReelsEpisodeSelectorConfig = ReelsEpisodeSelectorConfig(),
-    episodeSelectorListener: ReelsEpisodeSelectorListener? = null
+    episodeSelectorListener: ReelsEpisodeSelectorListener? = null,
+    isInPictureInPictureMode: Boolean = false
 ) {
     val pageCount = contentList?.size ?: 0
     var isFullScreen by remember { mutableStateOf(startInFullScreen) }
     val coroutineScope = rememberCoroutineScope()
-    val showEpisodeSelector =
-        episodeSelectorConfig.enabled && episodeSelectorConfig.episodes.isNotEmpty()
+    var areActiveControlsVisible by remember { mutableStateOf(false) }
     var isEpisodeSelectorExpanded by remember { mutableStateOf(false) }
     val internalEpisodeSelectorListener = object : ReelsEpisodeSelectorListener {
         override fun onEpisodeSelected(index: Int, item: ReelsEpisodeSelectorItem) {
@@ -88,8 +88,33 @@ fun ReelsContainer(
         isFullScreen = startInFullScreen
     }
 
+    val activePage = if (pageCount > 0) {
+        pagerState.currentPage.coerceIn(0, pageCount - 1)
+    } else {
+        0
+    }
+    val activePlayerModel = contentList?.getOrNull(activePage)
+    val activeControlsConfig = activePlayerModel?.controlsConfig ?: controlsConfig
+    val showEpisodeSelector =
+        activeControlsConfig.episodeSelector &&
+            episodeSelectorConfig.enabled &&
+            episodeSelectorConfig.episodes.isNotEmpty()
+
     LaunchedEffect(showEpisodeSelector) {
         if (!showEpisodeSelector) {
+            areActiveControlsVisible = false
+            isEpisodeSelectorExpanded = false
+        }
+    }
+
+    LaunchedEffect(isInPictureInPictureMode) {
+        if (isInPictureInPictureMode) {
+            isEpisodeSelectorExpanded = false
+        }
+    }
+
+    LaunchedEffect(areActiveControlsVisible) {
+        if (!areActiveControlsVisible) {
             isEpisodeSelectorExpanded = false
         }
     }
@@ -152,6 +177,13 @@ fun ReelsContainer(
                 controlsConfig = controlsConfig,
                 showEpisodeSelector = showEpisodeSelector,
                 isEpisodeSelectorExpanded = isEpisodeSelectorExpanded,
+                isInPictureInPictureMode = isInPictureInPictureMode,
+                onControlsVisibilityChanged = { visible ->
+                    areActiveControlsVisible = visible
+                    if (!visible) {
+                        isEpisodeSelectorExpanded = false
+                    }
+                },
                 onPlaybackCompleted = {
                     val nextPage = page + 1
                     if (
@@ -168,13 +200,17 @@ fun ReelsContainer(
             )
         }
 
-        ReelsEpisodeSelector(
-            config = episodeSelectorConfig,
-            listener = internalEpisodeSelectorListener,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .zIndex(4f)
-        )
+        if (!isInPictureInPictureMode && showEpisodeSelector && areActiveControlsVisible) {
+            ReelsEpisodeSelector(
+                config = episodeSelectorConfig,
+                customControls = activePlayerModel?.customControls,
+                controlsConfig = activeControlsConfig,
+                listener = internalEpisodeSelectorListener,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .zIndex(4f)
+            )
+        }
     }
 }
 

@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.getValue
@@ -33,6 +32,7 @@ import com.app.reelssdk.listener.ReelsPlayerStateListener
 import com.app.reelssdk.model.ReelsEpisodeSelectorConfig
 import com.app.reelssdk.model.ReelsEpisodeSelectorItem
 import com.app.reelssdk.model.ReelsEpisodeSelectorListener
+import com.app.reelssdk.model.ReelsPlayerModel
 import com.app.reelssdk.ui.MtvReelsPlayerSdk
 import com.app.sample.R
 import com.app.sample.composable.download.DownloadPlayer
@@ -52,6 +52,7 @@ fun ContentBody(
     deepLinkContent: DeepLinkResponse?,
     isDeepLink: Boolean? = false,
     isFullScreen: Boolean,
+    isInPictureInPictureMode: Boolean = false,
     onFullScreenChange: (Boolean) -> Unit,
     onOverrideContent: (OverrideContent?) -> Unit
 ) {
@@ -122,6 +123,7 @@ fun ContentBody(
                         onFullScreenChange(isFull)
                     },
                     episodeSelectorConfig = episodeSelectorConfig,
+                    isInPictureInPictureMode = isInPictureInPictureMode,
                     episodeSelectorListener = object : ReelsEpisodeSelectorListener {
                         override fun onEpisodeSelected(
                             index: Int,
@@ -190,27 +192,40 @@ fun ContentBody(
                         override fun onAdStateChanged(isAdPlaying: Boolean) {
                             Log.d("CLIENT", "Ad playing = $isAdPlaying")
                         }
+
+                        override fun onWatchlistClick(
+                            index: Int,
+                            item: ReelsPlayerModel?,
+                            isWatchlisted: Boolean
+                        ) {
+                            Log.d(
+                                "CLIENT",
+                                "Watchlist click: index=$index, id=${item?.id}, isWatchlisted=$isWatchlisted"
+                            )
+                        }
                     }
                 )
             }
 
             // 📜 Content List
-            ContentList(
-                pagingItems = pagingItems,
-                onItemClick = { index ->
-                    selectedIndex.intValue = index
-                    onOverrideContent(null)
-                },
-                downloadContentList = { list ->
-                    downloadedContentList.clear()
-                    downloadedContentList.addAll(list)
-                }
-            )
+            if (!isInPictureInPictureMode) {
+                ContentList(
+                    pagingItems = pagingItems,
+                    onItemClick = { index ->
+                        selectedIndex.intValue = index
+                        onOverrideContent(null)
+                    },
+                    downloadContentList = { list ->
+                        downloadedContentList.clear()
+                        downloadedContentList.addAll(list)
+                    }
+                )
+            }
         }
 
         // ➕ Floating Action Button
 
-        if (!isFullScreen && downloadedContentList.isNotEmpty()) {
+        if (!isInPictureInPictureMode && !isFullScreen && downloadedContentList.isNotEmpty()) {
             FloatingActionButton(
                 onClick = {
                     showDownloadedList = true
@@ -230,7 +245,7 @@ fun ContentBody(
             }
         }
 
-        if (showDownloadedList) {
+        if (!isInPictureInPictureMode && showDownloadedList) {
             DownloadedContentList(downloadContentList = downloadedContentList,
                 onItemClick = { item ->
                     selectedItem = item

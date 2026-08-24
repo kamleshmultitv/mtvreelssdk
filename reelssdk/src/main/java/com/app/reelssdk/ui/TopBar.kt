@@ -32,6 +32,7 @@ fun TopBar(
     playerModel: ReelsPlayerModel? = null,
     isFullScreen: Boolean = false,
     showContentTitle: Boolean = true,
+    showBackButton: Boolean = true,
     onBackPressed: () -> Unit
 ) {
     val episodeTitle = playerModel?.episodeTitle?.takeIf { it.isNotBlank() }
@@ -64,13 +65,15 @@ fun TopBar(
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBackPressed) {
-            CustomIcon(
-                resId = playerModel?.customControls?.backIconRes,
-                defaultIcon = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = playerModel?.customControls?.iconTintRes
-            )
+        if (showBackButton) {
+            IconButton(onClick = onBackPressed) {
+                CustomIcon(
+                    resId = playerModel?.customControls?.backIconRes,
+                    defaultIcon = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = playerModel?.customControls?.iconTintRes
+                )
+            }
         }
 
         Box(

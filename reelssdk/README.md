@@ -25,12 +25,15 @@ MtvReelsPlayerSdk(
     index = 0,
     playerConfig = ReelsPlayerConfig(
         controls = ReelsPlayerControlsConfig(
-            play = true,
-            pause = true,
+            playPause = true,
+            title = true,
             seekbar = true,
             settings = true,
             share = true,
-            bookmark = true,
+            watchlist = true,
+            showActionLabels = true,
+            spritePreview = true,
+            episodeSelector = true,
             fullscreen = true,
             exitFullscreen = true
         )
