@@ -107,6 +107,7 @@ fun MainContainer(
     isEpisodeSelectorExpanded: Boolean = false,
     isInPictureInPictureMode: Boolean = false,
     onControlsVisibilityChanged: (Boolean) -> Unit = {},
+    onBlockingSheetVisibilityChanged: (Boolean) -> Unit = {},
     onPlaybackCompleted: () -> Unit = {}
 ) {
     if (LocalInspectionMode.current) {
@@ -168,7 +169,9 @@ fun MainContainer(
     var showLShapeAd by remember { mutableStateOf(false) }
     val triggeredLBands = remember { mutableSetOf<String>() }
     val coroutineScope = rememberCoroutineScope()
+    val currentOnBlockingSheetVisibilityChanged by rememberUpdatedState(onBlockingSheetVisibilityChanged)
     val currentOnPlaybackCompleted by rememberUpdatedState(onPlaybackCompleted)
+    val isBlockingBottomSheetVisible = isSettingsClick || isShareSheetClick
 
     val imaCuePoints = remember {
         mutableStateListOf<CuePoint>()
@@ -435,6 +438,12 @@ fun MainContainer(
     LaunchedEffect(isReelPageActive, isControllerVisible) {
         if (isReelPageActive) {
             onControlsVisibilityChanged(isControllerVisible)
+        }
+    }
+
+    LaunchedEffect(isReelPageActive, isBlockingBottomSheetVisible) {
+        if (isReelPageActive) {
+            currentOnBlockingSheetVisibilityChanged(isBlockingBottomSheetVisible)
         }
     }
 

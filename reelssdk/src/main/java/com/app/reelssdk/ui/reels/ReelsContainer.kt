@@ -47,6 +47,7 @@ fun ReelsContainer(
     val coroutineScope = rememberCoroutineScope()
     var areActiveControlsVisible by remember { mutableStateOf(false) }
     var isEpisodeSelectorExpanded by remember { mutableStateOf(false) }
+    var isActiveBlockingBottomSheetVisible by remember { mutableStateOf(false) }
     val internalEpisodeSelectorListener = object : ReelsEpisodeSelectorListener {
         override fun onEpisodeSelected(index: Int, item: ReelsEpisodeSelectorItem) {
             isEpisodeSelectorExpanded = false
@@ -110,7 +111,12 @@ fun ReelsContainer(
     LaunchedEffect(isInPictureInPictureMode) {
         if (isInPictureInPictureMode) {
             isEpisodeSelectorExpanded = false
+            isActiveBlockingBottomSheetVisible = false
         }
+    }
+
+    LaunchedEffect(activePage) {
+        isActiveBlockingBottomSheetVisible = false
     }
 
     LaunchedEffect(areActiveControlsVisible) {
@@ -184,6 +190,14 @@ fun ReelsContainer(
                         isEpisodeSelectorExpanded = false
                     }
                 },
+                onBlockingSheetVisibilityChanged = { visible ->
+                    if (page == pagerState.settledPage) {
+                        isActiveBlockingBottomSheetVisible = visible
+                        if (visible) {
+                            isEpisodeSelectorExpanded = false
+                        }
+                    }
+                },
                 onPlaybackCompleted = {
                     val nextPage = page + 1
                     if (
@@ -200,7 +214,12 @@ fun ReelsContainer(
             )
         }
 
-        if (!isInPictureInPictureMode && showEpisodeSelector && areActiveControlsVisible) {
+        if (
+            !isInPictureInPictureMode &&
+            showEpisodeSelector &&
+            areActiveControlsVisible &&
+            !isActiveBlockingBottomSheetVisible
+        ) {
             ReelsEpisodeSelector(
                 config = episodeSelectorConfig,
                 customControls = activePlayerModel?.customControls,
