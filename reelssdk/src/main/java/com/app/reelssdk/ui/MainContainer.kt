@@ -83,6 +83,7 @@ import com.app.reelssdk.model.ReelsPlayerControlsConfig
 import com.app.reelssdk.model.ReelsPlayerCustomControls
 import com.app.reelssdk.model.ReelsPlayerModel
 import com.app.reelssdk.ui.ads.LShapeAdContainer
+import com.app.reelssdk.ui.reels.ReelsShareSheet
 import com.app.reelssdk.ui.reels.ReelsSettingsSheet
 import com.app.reelssdk.utils.PlayerUtils
 import coil.compose.AsyncImage
@@ -154,6 +155,7 @@ fun MainContainer(
     var isPlayerPlaying by remember { mutableStateOf(false) }
     var isSeekbarDragging by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
+    var isShareSheetClick by remember { mutableStateOf(false) }
     var fastForwardIndicatorSide by remember { mutableStateOf<HoldSide?>(null) }
     var isHoldMuteIndicatorVisible by remember { mutableStateOf(false) }
     val reelsSettingsSelectedItems = remember(selectedIndex.intValue) {
@@ -436,8 +438,14 @@ fun MainContainer(
         }
     }
 
-    LaunchedEffect(exoPlayer, isReelPageActive, isEpisodeSelectorExpanded) {
-        if (isReelPageActive && !isEpisodeSelectorExpanded) {
+    LaunchedEffect(
+        exoPlayer,
+        isReelPageActive,
+        isEpisodeSelectorExpanded,
+        isSettingsClick,
+        isShareSheetClick
+    ) {
+        if (isReelPageActive && !isEpisodeSelectorExpanded && !isSettingsClick && !isShareSheetClick) {
             exoPlayer?.playWhenReady = true
             exoPlayer?.play()
         } else {
@@ -453,6 +461,7 @@ fun MainContainer(
         isSeekbarDragging,
         isAdsShowing,
         isSettingsClick,
+        isShareSheetClick,
         selectedIndex.intValue
     ) {
         if (
@@ -461,7 +470,8 @@ fun MainContainer(
             !isPlayerPlaying ||
             isSeekbarDragging ||
             isAdsShowing ||
-            isSettingsClick
+            isSettingsClick ||
+            isShareSheetClick
         ) {
             return@LaunchedEffect
         }
@@ -473,7 +483,8 @@ fun MainContainer(
             isControllerVisible &&
             !isSeekbarDragging &&
             !isAdsShowing &&
-            !isSettingsClick
+            !isSettingsClick &&
+            !isShareSheetClick
         ) {
             isControllerVisible = false
         }
@@ -483,6 +494,7 @@ fun MainContainer(
         if (isInPictureInPictureMode) {
             isControllerVisible = false
             isSettingsClick = false
+            isShareSheetClick = false
             fastForwardIndicatorSide = null
             isHoldMuteIndicatorVisible = false
             showLShapeAd = false
@@ -592,7 +604,7 @@ fun MainContainer(
                         .background(Color.Black)
                         .then(
                             if (!isInPictureInPictureMode) {
-                                Modifier.pointerInput(isSettingsClick, exoPlayer) {
+                                Modifier.pointerInput(isSettingsClick, isShareSheetClick, exoPlayer) {
                                     var holdMutePreviousVolume: Float? = null
                                     var holdFastForwardPreviousParams: PlaybackParameters? = null
                                     detectTapGestures(
@@ -637,7 +649,7 @@ fun MainContainer(
                                             }
                                         },
                                         onTap = {
-                                            if (!isSettingsClick) {
+                                            if (!isSettingsClick && !isShareSheetClick) {
                                                 isControllerVisible = !isControllerVisible
                                             }
                                         }
@@ -665,7 +677,12 @@ fun MainContainer(
                     )
                 }
 
-                if (!isInPictureInPictureMode && !isControllerVisible && !isSettingsClick) {
+                if (
+                    !isInPictureInPictureMode &&
+                    !isControllerVisible &&
+                    !isSettingsClick &&
+                    !isShareSheetClick
+                ) {
                     Box(
                         modifier = Modifier
                             .matchParentSize()
@@ -753,6 +770,8 @@ fun MainContainer(
                 AnimatedVisibility(
                     visible = isControllerVisible &&
                         !isEpisodeSelectorExpanded &&
+                        !isSettingsClick &&
+                        !isShareSheetClick &&
                         !isInPictureInPictureMode,
                     modifier = Modifier.zIndex(3f),
                     enter = fadeIn(),
@@ -781,7 +800,12 @@ fun MainContainer(
                             onSeekbarDraggingChanged = { dragging ->
                                 isSeekbarDragging = dragging
                             },
+                            onShareClick = {
+                                player.pause()
+                                isShareSheetClick = true
+                            },
                             onSettingsClick = {
+                                player.pause()
                                 isSettingsClick = true
                             },
                             liftBottomControls = showEpisodeSelector
@@ -789,18 +813,36 @@ fun MainContainer(
                     }
                 }
 
-                if (isSettingsClick && !isInPictureInPictureMode) {
+                if (!isInPictureInPictureMode) {
+                    ReelsShareSheet(
+                        playerModel = playerModel,
+                        controlsConfig = modelControlsConfig,
+                        visible = isShareSheetClick,
+                        onDismiss = {
+                            isShareSheetClick = false
+                            isControllerVisible = true
+                            exoPlayer?.playWhenReady = true
+                            exoPlayer?.play()
+                        }
+                    )
+                }
+
+                if (!isInPictureInPictureMode) {
                     ReelsSettingsSheet(
                         playerModel = playerModel,
                         exoPlayer = exoPlayer,
                         selectedItemsState = reelsSettingsSelectedItems,
                         selectedOptionId = reelsSettingsSelectedOption,
                         controlsConfig = modelControlsConfig,
+                        visible = isSettingsClick,
                         onSelectedOptionChange = { optionId ->
                             reelsSettingsSelectedOption = optionId
                         },
                         onDismiss = {
                             isSettingsClick = false
+                            isControllerVisible = true
+                            exoPlayer?.playWhenReady = true
+                            exoPlayer?.play()
                         }
                     )
                 }

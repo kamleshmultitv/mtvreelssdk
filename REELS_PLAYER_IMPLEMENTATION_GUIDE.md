@@ -4,6 +4,46 @@ This guide explains how a third-party Android app should integrate the MTV Video
 
 The reels player is a full-screen vertical feed player. It supports smooth page scrolling, next-item prefetch callbacks, first decoded video frame rendering, fast-start playback, seekbar, play/pause, expand/collapse, internal episode selector, share sheet, settings bottom sheet, and app-provided control icons.
 
+## Third-Party App Changes Completed On 2026-08-24
+
+Third-party apps should update their integration to use the current SDK control names and flags:
+
+- Use `watchlist`, `watchlistIconRes`, `watchlistedIconRes`, `isWatchlisted`, and `onWatchlistClick`; the old bookmark naming should not be used in new app code.
+- Use `playPause` as the single visibility flag for the center play/pause button. When `playPause = false`, the play/pause icon and its background are both hidden.
+- Use `title` to show or hide the top title row.
+- Use `showActionLabels = true` to show action icon plus text, or `false` to show icons only.
+- Use `episodeSelector` to enable or hide the SDK episode selector from app config. `episodeSelectorLeadingIcon`, `episodeSelectorTrailingIcon`, and `lockedEpisodeIcon` control selector icons.
+- Use `spritePreview` to allow or disable seekbar sprite thumbnails. When `spritePreview = false`, the SDK does not resolve sprite URLs, does not parse manifests for sprites, and the seek preview falls back to a timer-only chip.
+- Provide all player icons from the app through `ReelsPlayerCustomControls` when the app wants branded icons. Any icon not supplied falls back to the SDK default.
+- Pass `isInPictureInPictureMode` from the host Activity if the app manually tracks PiP. In PiP, the SDK hides app-side text, selector UI, and custom controls so only system PiP controls remain.
+
+Recommended app-side default config:
+
+```kotlin
+private val defaultControlsConfig = ReelsPlayerControlsConfig(
+    playPause = true,
+    title = true,
+    showActionLabels = true,
+    share = true,
+    shareMore = true,
+    watchlist = true,
+    seekbar = true,
+    spritePreview = true,
+    back = true,
+    settings = true,
+    settingsClose = true,
+    fullscreen = true,
+    exitFullscreen = true,
+    episodeSelector = true,
+    episodeSelectorLeadingIcon = true,
+    episodeSelectorTrailingIcon = true,
+    lockedEpisodeIcon = true,
+    holdMuteIndicator = true,
+    fastForwardIndicator = true,
+    adClose = true
+)
+```
+
 ## 1. Requirements
 
 - Android min SDK: 24
@@ -42,7 +82,7 @@ Add the SDK dependency in the app module:
 
 ```kotlin
 dependencies {
-    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.7")
+    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.9")
 }
 ```
 
@@ -51,7 +91,7 @@ This artifact can be installed alongside the existing mobile player SDK because 
 ```kotlin
 dependencies {
     implementation("com.github.kamleshmultitv:mtvplayersdk:mobile-2.0.36")
-    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.7")
+    implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.9")
 }
 ```
 
@@ -66,9 +106,9 @@ This branch publishes the `reelssdk` Android library artifact. The current publi
 
 - `groupId`: `com.github.kamleshmultitv`
 - `artifactId`: `mtvreelssdk`
-- `version`: `reels-1.0.7`
+- `version`: `reels-1.0.9`
 
-This is a standalone repository, so third-party apps should depend on the `mtvreelssdk` artifact. If you publish a different Git tag/version, replace `reels-1.0.7` with that release version.
+This is a standalone repository, so third-party apps should depend on the `mtvreelssdk` artifact. If you publish a different Git tag/version, replace `reels-1.0.9` with that release version.
 
 ## 3. Android Setup
 
@@ -219,6 +259,7 @@ fun ReelsFeedPlayer(
                 share = true,
                 watchlist = true,
                 showActionLabels = true,
+                spritePreview = true,
                 episodeSelector = true,
                 seekbar = true,
                 settings = true,
@@ -584,6 +625,7 @@ ReelsPlayerConfig(
         share = true,
         watchlist = false,
         showActionLabels = true,
+        spritePreview = true,
         episodeSelector = true,
         seekbar = true,
         settings = true,
@@ -606,6 +648,7 @@ ReelsPlayerModel(
         share = true,
         watchlist = false,
         showActionLabels = false,
+        spritePreview = true,
         episodeSelector = false,
         seekbar = true,
         settings = true,
@@ -616,7 +659,7 @@ ReelsPlayerModel(
 ```
 
 Per-item `controlsConfig` takes priority over global `ReelsPlayerConfig.controls`.
-In the reels UI, the rendered controls are `playPause`, `title`, `share`, `watchlist`, `seekbar`, `settings`, `episodeSelector`, `fullscreen`, and `exitFullscreen`. Set `showActionLabels = false` to render the footer actions as icons only.
+In the reels UI, the rendered controls are `playPause`, `title`, `share`, `watchlist`, `seekbar`, `spritePreview`, `settings`, `episodeSelector`, `fullscreen`, and `exitFullscreen`. Set `showActionLabels = false` to render the footer actions as icons only. Set `spritePreview = false` when the host app wants seek preview to show only the timer chip.
 
 ## 10. Custom Icons And Color
 
@@ -630,11 +673,20 @@ val controls = ReelsPlayerCustomControls(
     playIconRes = R.drawable.ic_play,
     pauseIconRes = R.drawable.ic_pause,
     settingsIconRes = R.drawable.ic_settings,
+    settingsCloseIconRes = R.drawable.ic_close,
     fullScreenIconRes = R.drawable.ic_expand,
     exitFullScreenIconRes = R.drawable.ic_collapse,
     shareIconRes = R.drawable.ic_share,
+    shareMoreIconRes = R.drawable.ic_share_more,
     watchlistIconRes = R.drawable.ic_watchlist,
     watchlistedIconRes = R.drawable.ic_watchlisted,
+    episodeSelectorIconRes = R.drawable.ic_episode,
+    episodeSelectorExpandIconRes = R.drawable.ic_chevron_right,
+    episodeSelectorCollapseIconRes = R.drawable.ic_close,
+    lockedEpisodeIconRes = R.drawable.ic_lock,
+    holdMuteIconRes = R.drawable.ic_mute,
+    fastForwardIconRes = R.drawable.ic_forward,
+    adCloseIconRes = R.drawable.ic_close,
     crossFadeIconRes = R.drawable.ic_close
 )
 
@@ -647,6 +699,8 @@ val reel = ReelsPlayerModel(
 ```
 
 Use vector drawables or PNG drawables from the host app. If a drawable is not supplied, the SDK uses its default Compose icon.
+
+The SDK exposes watchlist naming only. Third-party apps should replace any old bookmark naming with `watchlist` / `watchlisted` in their app layer.
 
 ## 11. Reels UI Behavior
 
@@ -664,7 +718,10 @@ The reels player provides:
 - Controls stay visible while paused, settings/share sheet is open, or seekbar is being scrubbed.
 - Expand/collapse changes only video surface size, not the controls positions.
 - Internal episode selector stays fixed at the bottom when enabled.
+- Episode selector is shown only when player controls are visible. When the selector is expanded, playback pauses; when it closes or an episode is selected, playback resumes.
 - Other controls are hidden while the episode selector is expanded.
+- Seekbar sprite preview is optional. If a sprite is not available, the SDK shows only the time chip and no notch. If `spritePreview = false`, sprite lookup and rendering are disabled.
+- In Picture-in-Picture mode, the SDK hides custom controls, app text, SDK text, age rating overlays, and episode selector UI so only system PiP controls remain.
 - No floating plus button on the player.
 
 ## 12. Share Functionality
@@ -738,11 +795,27 @@ class ReelsActivity : FragmentActivity() {
 
 If your app uses a Compose `NavHost`, place `ReelsPlayerScreen` as a full-screen destination.
 
-## 16. Legacy Parameters
+## 16. Picture-In-Picture
 
-This reels branch always renders the reels player. Existing SDK parameters such as `mode`, `playerMode`, `pipListener`, and `isInPipMode` are kept only for source compatibility with older app code and are ignored by the reels implementation. New integrations should not pass those parameters.
+The SDK can detect Picture-in-Picture mode from a `ComponentActivity`. If the host app already tracks PiP state, pass it explicitly:
 
-## 17. Publishing On JitPack
+```kotlin
+MtvReelsPlayerSdk(
+    contentList = reels,
+    index = selectedIndex,
+    isInPictureInPictureMode = isInPictureInPictureMode,
+    onPlayerBack = { close() },
+    setFullScreen = {}
+)
+```
+
+When PiP is active, do not draw app-side overlays around the SDK player. The SDK hides its custom controls and text while `isInPictureInPictureMode = true`.
+
+## 17. Legacy Parameters
+
+This reels branch always renders the reels player. Existing SDK parameters such as `mode`, `playerMode`, `pipListener`, and `isInPipMode` are kept only for source compatibility with older app code and are ignored by the reels implementation. New integrations should use `isInPictureInPictureMode`.
+
+## 18. Publishing On JitPack
 
 Before creating a release tag, verify the SDK from a clean `reelssdk` branch checkout:
 
@@ -771,40 +844,40 @@ The `reelssdk` module uses `maven-publish`, publishes the `release` variant, and
 ```kotlin
 groupId = "com.github.kamleshmultitv"
 artifactId = "mtvreelssdk"
-version = "reels-1.0.7"
+version = "reels-1.0.9"
 ```
 
 After `publishToMavenLocal`, verify the generated Maven artifact exists:
 
 ```bash
-ls ~/.m2/repository/com/github/kamleshmultitv/mtvreelssdk/reels-1.0.7
+ls ~/.m2/repository/com/github/kamleshmultitv/mtvreelssdk/reels-1.0.9
 ```
 
 Expected files include:
 
-- `mtvreelssdk-reels-1.0.7.aar`
-- `mtvreelssdk-reels-1.0.7.pom`
-- `mtvreelssdk-reels-1.0.7-sources.jar`
+- `mtvreelssdk-reels-1.0.9.aar`
+- `mtvreelssdk-reels-1.0.9.pom`
+- `mtvreelssdk-reels-1.0.9-sources.jar`
 
 Then commit, push, and tag the exact commit:
 
 ```bash
 git add .
-git commit -m "Release reels SDK reels-1.0.7"
-git tag -a reels-1.0.7 -m "Release reels SDK 1.0.7"
+git commit -m "Release reels SDK reels-1.0.9"
+git tag -a reels-1.0.9 -m "Release reels SDK 1.0.9"
 git push origin main
-git push origin reels-1.0.7
+git push origin reels-1.0.9
 ```
 
 After JitPack finishes building the tag, third-party apps can use:
 
 ```kotlin
-implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.7")
+implementation("com.github.kamleshmultitv:mtvreelssdk:reels-1.0.9")
 ```
 
 Keep release work branch-safe by committing and tagging only from a clean `main` branch.
 
-## 18. DRM Content
+## 19. DRM Content
 
 For Widevine/DASH:
 
@@ -828,7 +901,7 @@ ReelsPlayerModel(
 )
 ```
 
-## 19. Subtitles
+## 20. Subtitles
 
 Pass an SRT URL:
 
@@ -842,7 +915,7 @@ ReelsPlayerModel(
 
 The settings bottom sheet shows available text tracks and lets the user select a caption.
 
-## 20. Testing Checklist
+## 21. Testing Checklist
 
 Before release, verify:
 
@@ -857,6 +930,8 @@ Before release, verify:
 - Playing video auto-hides controls after a short delay.
 - Paused video keeps controls visible.
 - Seekbar scrub keeps controls visible.
+- Seek preview shows sprite card only when `spritePreview = true` and a sprite is available.
+- Seek preview falls back to timer-only chip with no notch when sprite is unavailable or disabled.
 - Expand/collapse changes video size only.
 - Share sheet shows only installed apps.
 - More opens Android chooser.
@@ -867,7 +942,7 @@ Before release, verify:
 - Episode selector is hidden by default for old integrations.
 - Episode selector opens from the bottom, highlights the current episode, and calls host callbacks for unlocked/locked items.
 
-## 21. Troubleshooting
+## 22. Troubleshooting
 
 ### Black screen or loader before playback
 
@@ -882,6 +957,7 @@ ReelsPlayerControlsConfig(
     playPause = true,
     title = true,
     seekbar = true,
+    spritePreview = true,
     settings = true,
     share = true,
     episodeSelector = true
@@ -912,7 +988,7 @@ Use stable `ReelsPlayerModel.id` values and do not reorder `contentList` unexpec
 
 Append new items to the existing feed state instead of replacing the entire screen state on every callback.
 
-## 22. Minimal Production Template
+## 23. Minimal Production Template
 
 Example state shape:
 
@@ -953,8 +1029,15 @@ fun ThirdPartyReelsScreen(
                 fullScreenIconRes = R.drawable.ic_expand,
                 exitFullScreenIconRes = R.drawable.ic_collapse,
                 shareIconRes = R.drawable.ic_share,
+                shareMoreIconRes = R.drawable.ic_share_more,
                 watchlistIconRes = R.drawable.ic_watchlist,
-                watchlistedIconRes = R.drawable.ic_watchlisted
+                watchlistedIconRes = R.drawable.ic_watchlisted,
+                episodeSelectorIconRes = R.drawable.ic_episode,
+                episodeSelectorCollapseIconRes = R.drawable.ic_close,
+                lockedEpisodeIconRes = R.drawable.ic_lock,
+                holdMuteIconRes = R.drawable.ic_mute,
+                fastForwardIconRes = R.drawable.ic_forward,
+                adCloseIconRes = R.drawable.ic_close
             )
         )
     }
@@ -971,6 +1054,7 @@ fun ThirdPartyReelsScreen(
                 share = true,
                 watchlist = true,
                 showActionLabels = true,
+                spritePreview = true,
                 episodeSelector = true,
                 fullscreen = true,
                 exitFullscreen = true

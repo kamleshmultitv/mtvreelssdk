@@ -39,7 +39,6 @@ import com.app.reelssdk.model.CuePoint
 import com.app.reelssdk.model.ReelsPlayerControlsConfig
 import com.app.reelssdk.model.ReelsPlayerModel
 import com.app.reelssdk.ui.reels.ReelsFooter
-import com.app.reelssdk.ui.reels.ReelsShareSheet
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -60,6 +59,7 @@ fun CustomPlayerController(
     cuePoints: List<CuePoint> = emptyList(),
     controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
     onSeekbarDraggingChanged: (Boolean) -> Unit = {},
+    onShareClick: () -> Unit = {},
     onSettingsClick: (Boolean) -> Unit = {},
     liftBottomControls: Boolean = false
 ) {
@@ -71,7 +71,6 @@ fun CustomPlayerController(
     var isPlaying by remember(exoPlayer) { mutableStateOf(exoPlayer.isPlaying) }
     var currentPosition by remember { mutableLongStateOf(0L) }
     val duration by rememberUpdatedState(if (totalDuration > 0) totalDuration else 0L)
-    var showReelsShareSheet by remember(index) { mutableStateOf(false) }
     var isDraggingSeekbar by remember { mutableStateOf(false) }
     var onSeek by remember { mutableStateOf(false) }
     var playResumeHideRequest by remember { mutableIntStateOf(0) }
@@ -108,7 +107,6 @@ fun CustomPlayerController(
     LaunchedEffect(
         isControlsVisible,
         isPlaying,
-        showReelsShareSheet,
         isDraggingSeekbar,
         onSeek,
         playResumeHideRequest,
@@ -118,7 +116,7 @@ fun CustomPlayerController(
             return@LaunchedEffect
         }
 
-        if (showReelsShareSheet || isDraggingSeekbar || onSeek) {
+        if (isDraggingSeekbar || onSeek) {
             showControlsState.value(true)
             return@LaunchedEffect
         }
@@ -130,7 +128,7 @@ fun CustomPlayerController(
 
         delay(3000.milliseconds)
 
-        if (exoPlayer.isPlaying && !isDraggingSeekbar && !showReelsShareSheet) {
+        if (exoPlayer.isPlaying && !isDraggingSeekbar) {
             showControlsState.value(false)
         }
     }
@@ -300,7 +298,7 @@ fun CustomPlayerController(
                     )
                 },
                 onShareClick = {
-                    showReelsShareSheet = true
+                    onShareClick()
                 },
                 onSettingsClick = {
                     onSettingsClick(true)
@@ -313,14 +311,5 @@ fun CustomPlayerController(
             )
         }
 
-        if (showReelsShareSheet) {
-            ReelsShareSheet(
-                playerModel = playerModel,
-                controlsConfig = controlsConfig,
-                onDismiss = {
-                    showReelsShareSheet = false
-                }
-            )
-        }
     }
 }

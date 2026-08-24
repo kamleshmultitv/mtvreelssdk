@@ -10,12 +10,27 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,11 +43,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -48,15 +60,17 @@ import com.app.reelssdk.model.ReelsPlayerControlsConfig
 import com.app.reelssdk.model.ReelsPlayerModel
 import com.app.reelssdk.ui.CustomIcon
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReelsShareSheet(
     playerModel: ReelsPlayerModel?,
     controlsConfig: ReelsPlayerControlsConfig = ReelsPlayerControlsConfig(),
+    visible: Boolean = true,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scrimInteractionSource = remember { MutableInteractionSource() }
+    val sheetInteractionSource = remember { MutableInteractionSource() }
+    val sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     val shareText = remember(playerModel) { playerModel.buildShareText() }
     val targets = remember(context, shareText, controlsConfig.shareMore) {
         buildShareTargets(
@@ -66,62 +80,139 @@ fun ReelsShareSheet(
         )
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = Color(0xFF111111),
-        contentColor = Color.White,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(start = 20.dp, top = 4.dp, end = 20.dp, bottom = 28.dp)
-        ) {
-            Text(
-                text = "Share",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White
+    BackHandler(enabled = visible, onBack = onDismiss)
+
+    AnimatedVisibility(
+        visible = visible,
+        modifier = Modifier.fillMaxSize(),
+        enter = fadeIn(
+            animationSpec = tween(
+                durationMillis = 260,
+                easing = LinearEasing
             )
+        ),
+        exit = fadeOut(
+            animationSpec = tween(
+                durationMillis = 220,
+                easing = LinearEasing
+            )
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.38f))
+                .clickable(
+                    interactionSource = scrimInteractionSource,
+                    indication = null,
+                    onClick = onDismiss
+                ),
+        )
+    }
 
-            Spacer(modifier = Modifier.height(18.dp))
-
-            if (targets.isEmpty()) {
-                Text(
-                    text = "No share apps available",
-                    color = Color.White.copy(alpha = 0.72f),
-                    style = MaterialTheme.typography.bodyMedium
+    Box(modifier = Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = visible,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = expandVertically(
+                expandFrom = Alignment.Bottom,
+                animationSpec = tween(
+                    durationMillis = 420,
+                    easing = LinearOutSlowInEasing
                 )
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(22.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-            targets.forEach { target ->
-                ShareTargetButton(
-                    target = target,
-                    playerModel = playerModel,
-                    onClick = {
-                                launchShareTarget(
-                                    context = context,
-                                    target = target,
-                                    shareText = shareText
-                                )
-                                onDismiss()
-                            }
-                        )
+            ) + slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(
+                    durationMillis = 420,
+                    easing = LinearOutSlowInEasing
+                )
+            ) + fadeIn(
+                animationSpec = tween(
+                    durationMillis = 260,
+                    delayMillis = 80,
+                    easing = LinearEasing
+                )
+            ),
+            exit = shrinkVertically(
+                shrinkTowards = Alignment.Bottom,
+                animationSpec = tween(
+                    durationMillis = 320,
+                    easing = FastOutLinearInEasing
+                )
+            ) + slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(
+                    durationMillis = 320,
+                    easing = FastOutLinearInEasing
+                )
+            ) + fadeOut(
+                animationSpec = tween(
+                    durationMillis = 220,
+                    easing = LinearEasing
+                )
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(sheetShape)
+                    .background(Color(0xFF111111))
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.14f),
+                        shape = sheetShape
+                    )
+                    .clickable(
+                        interactionSource = sheetInteractionSource,
+                        indication = null,
+                        onClick = {}
+                    )
+                    .navigationBarsPadding()
+                    .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 28.dp)
+            ) {
+                Text(
+                    text = "Share",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                if (targets.isEmpty()) {
+                    Text(
+                        text = "No share apps available",
+                        color = Color.White.copy(alpha = 0.72f),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(22.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        targets.forEach { target ->
+                            ShareTargetButton(
+                                target = target,
+                                playerModel = playerModel,
+                                onClick = {
+                                    launchShareTarget(
+                                        context = context,
+                                        target = target,
+                                        shareText = shareText
+                                    )
+                                    onDismiss()
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
-
 @Composable
 private fun ShareTargetButton(
     target: ShareTarget,

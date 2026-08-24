@@ -164,6 +164,19 @@ fun CustomSlider(
             .fillMaxWidth()
             .padding(horizontal = 0.dp)
     ) {
+        val showSeekPreview = isSeeking && !isLive && duration > 0
+        val previewTimeMs =
+            ((playerModel?.seekTo ?: 0L) + (sliderPosition * duration).toLong())
+                .coerceAtLeast(0L)
+        val hasSpritePreview = !resolvedSpriteUrl.isNullOrBlank()
+        val previewSeekbarGap = 4.dp
+        val previewBubbleHeight = if (hasSpritePreview) 152.dp else 28.dp
+        val seekbarSlotHeight = 24.dp
+        val sliderAreaHeight = when {
+            !showSeekPreview -> seekbarSlotHeight
+            else -> previewBubbleHeight + previewSeekbarGap + seekbarSlotHeight
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom
@@ -172,27 +185,21 @@ fun CustomSlider(
             /* ---------- CURRENT TIME ---------- */
 
             if (!isLive) {
-                Text(
-                    text = formatTime(currentPosition),
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 12.dp, end = 8.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .height(seekbarSlotHeight)
+                        .padding(start = 12.dp, end = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = formatTime(currentPosition),
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                }
             }
 
             /* ---------- SEEK BAR ---------- */
-
-            val showSeekPreview = isSeeking && !isLive && duration > 0
-            val previewTimeMs =
-                ((playerModel?.seekTo ?: 0L) + (sliderPosition * duration).toLong())
-                    .coerceAtLeast(0L)
-            val hasSpritePreview = !resolvedSpriteUrl.isNullOrBlank()
-            val previewSeekbarGap = 4.dp
-            val sliderAreaHeight = when {
-                !showSeekPreview -> animatedContainerHeight
-                hasSpritePreview -> 152.dp + previewSeekbarGap + animatedContainerHeight
-                else -> 28.dp + previewSeekbarGap + animatedContainerHeight
-            }
 
             BoxWithConstraints(
                 modifier = Modifier
@@ -260,7 +267,7 @@ fun CustomSlider(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .height(animatedContainerHeight)
+                            .height(seekbarSlotHeight)
                             .drawBehind {
                                 val trackHeightPx = animatedTrackHeight.toPx()
                                 val trackY = size.height / 2 - trackHeightPx / 2
@@ -327,12 +334,18 @@ fun CustomSlider(
             /* ---------- DURATION / LIVE ---------- */
 
             if (!isLive) {
-                Text(
-                    text = formatTime(duration),
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 8.dp, end = 12.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .height(seekbarSlotHeight)
+                        .padding(start = 8.dp, end = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = formatTime(duration),
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                }
             } else {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
