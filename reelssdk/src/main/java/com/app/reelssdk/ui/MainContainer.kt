@@ -279,6 +279,16 @@ fun MainContainer(
     val exoPlayer = playerWithAds?.first
     val adsLoader = playerWithAds?.second
 
+    LaunchedEffect(playerView, isReelPageActive, isPlayerPlaying) {
+        playerView.keepScreenOn = isReelPageActive && isPlayerPlaying
+    }
+
+    DisposableEffect(playerView) {
+        onDispose {
+            playerView.keepScreenOn = false
+        }
+    }
+
     val lBandCuePoints = remember(contentDuration, selectedIndex.intValue) {
         val interval = playerModel?.gamAdsConfig?.timeIntervalInMilliseconds
         if (contentDuration <= 0L || interval == null || interval <= 0L) {
