@@ -49,7 +49,6 @@ fun SpriteThumbnail(
     var sprH by remember { mutableIntStateOf(0) }
 
     var cues by remember { mutableStateOf<List<VttCue>>(emptyList()) }
-    var activeCue by remember { mutableStateOf<VttCue?>(null) }
     var lastLoadedImageUrl by remember { mutableStateOf<String?>(null) }
 
     /* ---------------- LOAD REMOTE DATA ---------------- */
@@ -59,49 +58,81 @@ fun SpriteThumbnail(
         sprW = 0
         sprH = 0
         cues = emptyList()
-        activeCue = null
         lastLoadedImageUrl = null
 
         if (spriteUrl.isBlank()) return@LaunchedEffect
 
         try {
-            if (SpriteUtils.isVttUrl(spriteUrl)) {
-                val vttText = withContext(Dispatchers.IO) {
-                    SpriteUtils.fetchTextFromUrl(spriteUrl)
-                }
+            when {
+                SpriteUtils.isVttUrl(spriteUrl) -> {
+                    val vttText = withContext(Dispatchers.IO) {
+                        SpriteUtils.fetchTextFromUrl(spriteUrl)
+                    }
 
-                if (!vttText.isNullOrBlank()) {
-                    cues = parseVttString(vttText, spriteUrl)
-                    activeCue = findCueForPosition(cues, positionMs)
+                    if (!vttText.isNullOrBlank()) {
+                        cues = parseVttString(vttText, spriteUrl)
+                    }
 
-                    val imgRef = activeCue?.imageUrl ?: cues.firstOrNull()?.imageUrl
-                    val resolved = imgRef?.let { resolveRelativeUrl(it, spriteUrl) }
-
-                    resolved?.let {
-                        loadBitmapWithFallback(ctx, it)?.let { bmp ->
+                    if (cues.isEmpty() && spriteBitmap == null) {
+                        val fallback = spriteUrl.substringBeforeLast('.') + ".jpg"
+                        loadBitmapWithFallback(ctx, fallback)?.let { bmp ->
                             spriteBitmap = bmp
                             sprW = bmp.width
                             sprH = bmp.height
-                            lastLoadedImageUrl = it
+                            lastLoadedImageUrl = fallback
                         }
                     }
                 }
 
-                if (spriteBitmap == null) {
-                    val fallback = spriteUrl.substringBeforeLast('.') + ".jpg"
-                    loadBitmapWithFallback(ctx, fallback)?.let { bmp ->
+                SpriteUtils.isHlsManifestUrl(spriteUrl) -> {
+                    val manifestText = withContext(Dispatchers.IO) {
+                        SpriteUtils.fetchTextFromUrl(spriteUrl)
+                    }
+
+                    if (!manifestText.isNullOrBlank()) {
+                        cues = SpriteUtils.parseHlsImagePlaylist(manifestText, spriteUrl)
+
+                        var fallbackImageUrl: String? = null
+                        if (cues.isEmpty()) {
+                            val imagePlaylistUrl = SpriteUtils.preferredSpriteUrl(
+                                SpriteUtils.parseSpriteUrlsFromManifest(manifestText, spriteUrl)
+                            )
+
+                            if (!imagePlaylistUrl.isNullOrBlank()) {
+                                if (SpriteUtils.isHlsManifestUrl(imagePlaylistUrl)) {
+                                    val imagePlaylistText = withContext(Dispatchers.IO) {
+                                        SpriteUtils.fetchTextFromUrl(imagePlaylistUrl)
+                                    }
+                                    if (!imagePlaylistText.isNullOrBlank()) {
+                                        cues = SpriteUtils.parseHlsImagePlaylist(
+                                            imagePlaylistText,
+                                            imagePlaylistUrl
+                                        )
+                                    }
+                                } else {
+                                    fallbackImageUrl = imagePlaylistUrl
+                                }
+                            }
+
+                            if (spriteBitmap == null && cues.isEmpty() && !fallbackImageUrl.isNullOrBlank()) {
+                                loadBitmapWithFallback(ctx, fallbackImageUrl)?.let { bmp ->
+                                    spriteBitmap = bmp
+                                    sprW = bmp.width
+                                    sprH = bmp.height
+                                    lastLoadedImageUrl = fallbackImageUrl
+                                }
+                            }
+                        }
+                    }
+                }
+
+                else -> {
+                    loadBitmapWithFallback(ctx, spriteUrl)?.let { bmp ->
                         spriteBitmap = bmp
                         sprW = bmp.width
                         sprH = bmp.height
-                        lastLoadedImageUrl = fallback
+                        lastLoadedImageUrl = spriteUrl
                     }
-                }
-            } else {
-                loadBitmapWithFallback(ctx, spriteUrl)?.let { bmp ->
-                    spriteBitmap = bmp
-                    sprW = bmp.width
-                    sprH = bmp.height
-                    lastLoadedImageUrl = spriteUrl
                 }
             }
         } catch (_: CancellationException) {
@@ -112,21 +143,21 @@ fun SpriteThumbnail(
 
     /* ---------------- UPDATE CUE ON SCRUB ---------------- */
 
-    LaunchedEffect(positionMs, cues) {
-        if (cues.isEmpty()) return@LaunchedEffect
+    val activeCue = remember(cues, positionMs) {
+        if (cues.isEmpty()) null else findCueForPosition(cues, positionMs)
+    }
+    val activeCueImageUrl = activeCue?.imageUrl?.let { resolveRelativeUrl(it, spriteUrl) }
 
-        val cue = findCueForPosition(cues, positionMs)
-        if (cue != activeCue) {
-            activeCue = cue
-            val resolved = cue?.imageUrl?.let { resolveRelativeUrl(it, spriteUrl) }
-            if (!resolved.isNullOrBlank() && resolved != lastLoadedImageUrl) {
-                loadBitmapWithFallback(ctx, resolved)?.let { bmp ->
-                    spriteBitmap = bmp
-                    sprW = bmp.width
-                    sprH = bmp.height
-                    lastLoadedImageUrl = resolved
-                }
-            }
+    LaunchedEffect(activeCueImageUrl) {
+        if (activeCueImageUrl.isNullOrBlank() || activeCueImageUrl == lastLoadedImageUrl) {
+            return@LaunchedEffect
+        }
+
+        loadBitmapWithFallback(ctx, activeCueImageUrl)?.let { bmp ->
+            spriteBitmap = bmp
+            sprW = bmp.width
+            sprH = bmp.height
+            lastLoadedImageUrl = activeCueImageUrl
         }
     }
 
@@ -135,8 +166,14 @@ fun SpriteThumbnail(
     val srcRect = remember(spriteBitmap, sprW, sprH, cues, activeCue, positionMs) {
         if (spriteBitmap == null || sprW == 0 || sprH == 0) {
             Quad(0, 0, 1, 1)
-        } else if (activeCue?.x != null) {
-            Quad(activeCue!!.x!!, activeCue!!.y!!, activeCue!!.w!!, activeCue!!.h!!)
+        } else if (activeCue?.x != null &&
+            activeCue.y != null &&
+            activeCue.w != null &&
+            activeCue.h != null
+        ) {
+            Quad(activeCue.x, activeCue.y, activeCue.w, activeCue.h)
+        } else if (activeCue != null) {
+            Quad(0, 0, sprW, sprH)
         } else {
             val usedCols = max(1, columns)
             val total = thumbnailsCount ?: usedCols

@@ -10,7 +10,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
-import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.DeepLinkResponse
 import com.app.sample.model.OverrideContent
 import com.app.sample.viewModel.ContentViewModel
@@ -33,7 +32,6 @@ fun ContentScreen(
     var isFullScreen by remember { mutableStateOf(false) }
 
     var overrideContent by remember { mutableStateOf<OverrideContent?>(null) }
-
 
     var deepLinkContent by remember { mutableStateOf<DeepLinkResponse?>(null) }
 

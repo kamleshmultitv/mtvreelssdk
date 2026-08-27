@@ -37,6 +37,16 @@ object SpriteUtils {
         if (manifestText.isBlank()) return emptyList()
         val found = mutableListOf<String>()
 
+        manifestText.lineSequence()
+            .map { it.trim() }
+            .filter { it.startsWith("#EXT-X-IMAGE-STREAM-INF", ignoreCase = true) }
+            .forEach { line ->
+                val attr = attrPattern.matcher(line)
+                while (attr.find()) {
+                    attr.group(1)?.let { found.add(resolveRelativeUrl(it, manifestUrl)) }
+                }
+            }
+
         val m = mediaPattern.matcher(manifestText)
         while (m.find()) {
             val token = m.group(1) ?: m.group(2)
@@ -56,6 +66,7 @@ object SpriteUtils {
 
     fun preferredSpriteUrl(urls: List<String>): String? {
         return urls.firstOrNull { isVttUrl(it) }
+            ?: urls.firstOrNull { isImagePlaylistCandidateUrl(it) }
             ?: urls.firstOrNull { url ->
                 val clean = stripQueryAndFragment(url)
                 clean.contains("sprite", ignoreCase = true) ||
@@ -66,6 +77,23 @@ object SpriteUtils {
 
     fun isVttUrl(url: String): Boolean {
         return stripQueryAndFragment(url).endsWith(".vtt", ignoreCase = true)
+    }
+
+    fun isHlsManifestUrl(url: String): Boolean {
+        return stripQueryAndFragment(url).endsWith(".m3u8", ignoreCase = true)
+    }
+
+    private fun isImagePlaylistCandidateUrl(url: String): Boolean {
+        val clean = stripQueryAndFragment(url)
+        return clean.endsWith(".m3u8", true) &&
+            (
+                clean.contains("trickplay", ignoreCase = true) ||
+                    clean.contains("sprite", ignoreCase = true) ||
+                    clean.contains("thumb", ignoreCase = true) ||
+                    clean.contains("image", ignoreCase = true) ||
+                    clean.contains("preview", ignoreCase = true) ||
+                    clean.contains("tile", ignoreCase = true)
+                )
     }
 
     private fun isPreviewResourceUrl(url: String): Boolean {
@@ -203,6 +231,48 @@ object SpriteUtils {
     /* ---------------------------
        VTT parser & helpers
        --------------------------- */
+
+    fun parseHlsImagePlaylist(playlistText: String, playlistUrl: String): List<VttCue> {
+        if (playlistText.isBlank()) return emptyList()
+
+        val cues = mutableListOf<VttCue>()
+        var currentStartMs = 0L
+        var pendingDurationMs: Long? = null
+
+        playlistText.lines().forEach { rawLine ->
+            val line = rawLine.trim()
+            when {
+                line.isBlank() -> Unit
+                line.startsWith("#EXTINF", ignoreCase = true) -> {
+                    pendingDurationMs = line
+                        .substringAfter(':', "")
+                        .substringBefore(',')
+                        .trim()
+                        .toDoubleOrNull()
+                        ?.let { (it * 1000.0).toLong() }
+                        ?.coerceAtLeast(0L)
+                }
+                line.startsWith("#") -> Unit
+                isPreviewResourceUrl(line) -> {
+                    val durationMs = pendingDurationMs ?: 0L
+                    val endMs = if (durationMs > 0L) currentStartMs + durationMs else currentStartMs + 1L
+                    cues += VttCue(
+                        startMs = currentStartMs,
+                        endMs = endMs,
+                        imageUrl = resolveRelativeUrl(line, playlistUrl),
+                        x = null,
+                        y = null,
+                        w = null,
+                        h = null
+                    )
+                    currentStartMs = endMs
+                    pendingDurationMs = null
+                }
+            }
+        }
+
+        return cues
+    }
 
     fun parseTimeToMs(token: String): Long {
         val t = token.trim()
