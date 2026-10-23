@@ -157,6 +157,7 @@ fun ReelsContainer(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
             beyondViewportPageCount = REELS_PREFETCH_PAGE_COUNT,
+            userScrollEnabled = !isActiveBlockingBottomSheetVisible,
             flingBehavior = PagerDefaults.flingBehavior(
                 state = pagerState,
                 pagerSnapDistance = PagerSnapDistance.atMost(REELS_MAX_PAGES_PER_FLING)
